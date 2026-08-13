@@ -39,25 +39,16 @@ Most reference architectures draw identity at the bottom of the diagram, which
 is where the circularity hides. Drawing it truthfully means declaring, for each
 layer, what it is allowed to depend on:
 
-```
-Layer 0   Physical and hypervisor console, break-glass credentials
-          depends on: nothing
-             │
-Layer 1   Secrets store
-          depends on: nothing at authentication time
-             │
-Layer 2   Network — the mesh
-          depends on: Layer 0
-             │
-Layer 3   Identity — the identity provider
-          depends on: Layers 0, 2
-             │
-Layer 4   Access — SSH certificates, sudo, service sign-on
-          depends on: Layer 3
-             │
-Layer 5   Device, configuration, evidence
-          depends on: Layers 3, 4
-```
+![The dependency ladder: six layers with every dependency arrow pointing downward, a break-glass path running from an operator at a console straight to Layer 0, and a crossed-out upward edge marked "never federated".](img/dependency-ladder.svg)
+
+| Layer | What it is | Depends on |
+|---|---|---|
+| 0 | Physical and hypervisor console, break-glass credentials | nothing |
+| 1 | Secret store | nothing at authentication time |
+| 2 | Network — the mesh | 0 |
+| 3 | Identity — the identity provider | 0, 2 |
+| 4 | Access — SSH certificates, sudo, service sign-on | 3 |
+| 5 | Device, configuration, evidence | 3, 4 |
 
 **Nothing may depend on a layer above it.** That is the whole rule, and the four
 consequences below are what it means in practice.
@@ -112,15 +103,7 @@ See [`IGN-BR-02`](../controls/backup-restore.yaml).
 
 Configuration is **enforced** by one system and **verified** by another.
 
-```
-   Enforce                        Verify
-   ───────                        ──────
-   Ansible push (servers)   →     Fleet policies
-   Verified pull (endpoints) →    Fleet policies
-                                       │
-                                       ▼
-                                  Evidence pack
-```
+![Git feeds an Ansible push for servers and a verified pull loop for endpoints, both writing to hosts. Separately the Fleet agent reads state from those same hosts into the evidence pack, catching a change made by hand as drift.](img/enforce-verify.svg)
 
 The separation is the point. A configuration tool reporting that it applied a
 change is reporting on its own behavior, not on the machine's state — it will

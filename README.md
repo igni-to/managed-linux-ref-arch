@@ -30,6 +30,36 @@ gap that already exists rather than a technology anyone needs to adopt.
 
 **This repository is what closing that gap looks like, in code.**
 
+## The shape of it
+
+The identity provider is a server inside the estate it governs, which produces
+the failure this architecture is arranged to survive: the identity provider is
+down, logging into the hypervisor requires the identity provider, and starting
+the identity provider requires logging into the hypervisor.
+
+Most reference architectures draw identity at the bottom of the diagram, which
+is exactly where that circularity hides. Drawing it truthfully means declaring,
+per layer, what it may depend on — and never crossing the line.
+
+![The dependency ladder: six layers with every dependency arrow pointing downward, a break-glass path running from an operator at a console straight to Layer 0, and a crossed-out upward edge marked "never federated".](docs/img/dependency-ladder.svg)
+
+The hypervisor keeps a local administrative realm permanently and is never
+federated. The change that would "finish the job" is the one that makes the
+estate unrecoverable, and it always looks like an improvement in the pull
+request. Full treatment in [`docs/00-overview.md`](docs/00-overview.md).
+
+The second structural idea is that configuration is **enforced** by one system
+and **verified** by another:
+
+![Git feeds an Ansible push for servers and a verified pull loop for endpoints, both writing to hosts. Separately the Fleet agent reads state from those same hosts into the evidence pack, catching a change made by hand as drift.](docs/img/enforce-verify.svg)
+
+A configuration tool reporting that it applied a change is reporting on its own
+behavior, not on the machine's state — it will report success on a host where
+the change was reverted an hour later. Evidence comes from the path that had no
+hand in making the change, which is also what gives drift a definition: the
+enforcing system says what should be true, the verifying system says what is,
+and the gap between them is a number somebody can be accountable for.
+
 ## What this is
 
 - **An architecture**, in `docs/` — the seven planes, what depends on what, the

@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 400" width="880" height="400" role="img" aria-label="Four execution paths — remote scripts, the endpoint pull loop, packages and images, and the enrollment bootstrap — each pass through their own verification gate before anything executes on the host. The pull loop's gate has a second outcome drawn beneath it: on a verification failure it exits without running rather than falling back to the last good revision.">
+  <title>Four execution paths, one rule</title>
+  <desc>Nothing executes on a host unless its source is version controlled, reviewed, signed, and verified at the point of execution.</desc>
+
+  <rect x="0" y="0" width="880" height="400" fill="#efe8db"/>
+
+  <defs>
+    <marker id="p-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5b5348"/>
+    </marker>
+    <marker id="p-ok" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0a6b59"/>
+    </marker>
+    <marker id="p-crit" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#b3261e"/>
+    </marker>
+  </defs>
+
+  <g font-family="system-ui, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">
+
+    <text x="20" y="28" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" letter-spacing="1.4" fill="#6b6052">SOURCE</text>
+    <text x="340" y="28" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" letter-spacing="1.4" fill="#6b6052">GATE</text>
+    <text x="722" y="28" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" letter-spacing="1.4" fill="#6b6052">HOST</text>
+
+    <!-- sources -->
+    <rect x="20" y="48" width="228" height="54" rx="3" fill="#ffffff" stroke="#8a7a63" stroke-width="1.5"/>
+    <text x="36" y="71" font-size="14" font-weight="600" fill="#221e1a">Remote scripts</text>
+    <text x="36" y="89" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#5b5348">applied from a digest manifest</text>
+
+    <rect x="20" y="122" width="228" height="54" rx="3" fill="#ffffff" stroke="#8a7a63" stroke-width="1.5"/>
+    <text x="36" y="145" font-size="14" font-weight="600" fill="#221e1a">Endpoint pull loop</text>
+    <text x="36" y="163" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#5b5348">clones and runs, on a timer</text>
+
+    <rect x="20" y="238" width="228" height="54" rx="3" fill="#ffffff" stroke="#8a7a63" stroke-width="1.5"/>
+    <text x="36" y="261" font-size="14" font-weight="600" fill="#221e1a">Packages and images</text>
+    <text x="36" y="279" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#5b5348">the highest-volume path</text>
+
+    <rect x="20" y="312" width="228" height="54" rx="3" fill="#ffffff" stroke="#8a7a63" stroke-width="1.5"/>
+    <text x="36" y="335" font-size="14" font-weight="600" fill="#221e1a">Enrollment bootstrap</text>
+    <text x="36" y="353" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#5b5348">runs before trust exists</text>
+
+    <!-- gates -->
+    <rect x="340" y="48" width="258" height="54" rx="3" fill="#e7dfd0" stroke="#8a7a63" stroke-width="1.5"/>
+    <text x="356" y="71" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#5b5348">manifest digest matches;</text>
+    <text x="356" y="89" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#5b5348">drift is a finding, not a warning</text>
+
+    <rect x="340" y="122" width="258" height="54" rx="3" fill="#e7dfd0" stroke="#8a7a63" stroke-width="1.5"/>
+    <text x="356" y="145" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#5b5348">git verify-commit against</text>
+    <text x="356" y="163" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#5b5348">the pinned signer list</text>
+
+    <rect x="340" y="238" width="258" height="54" rx="3" fill="#e7dfd0" stroke="#8a7a63" stroke-width="1.5"/>
+    <text x="356" y="261" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#5b5348">pinned repository keys;</text>
+    <text x="356" y="279" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#5b5348">signature checking never off</text>
+
+    <rect x="340" y="312" width="258" height="54" rx="3" fill="#e7dfd0" stroke="#8a7a63" stroke-width="1.5"/>
+    <text x="356" y="335" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#5b5348">digest published in the repo;</text>
+    <text x="356" y="353" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#5b5348">installs trust roots, then stops</text>
+
+    <!-- host -->
+    <rect x="722" y="164" width="138" height="84" rx="3" fill="#ffffff" stroke="#8a7a63" stroke-width="1.5"/>
+    <text x="791" y="200" font-size="14" font-weight="600" fill="#221e1a" text-anchor="middle">Executes</text>
+    <text x="791" y="219" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#5b5348" text-anchor="middle">only after the gate</text>
+
+    <g stroke="#5b5348" stroke-width="1.5" fill="none">
+      <line x1="248" y1="75" x2="334" y2="75" marker-end="url(#p-ar)"/>
+      <line x1="248" y1="149" x2="334" y2="149" marker-end="url(#p-ar)"/>
+      <line x1="248" y1="265" x2="334" y2="265" marker-end="url(#p-ar)"/>
+      <line x1="248" y1="339" x2="334" y2="339" marker-end="url(#p-ar)"/>
+    </g>
+
+    <g stroke="#0a6b59" stroke-width="2" fill="none">
+      <path d="M 598 75 L 662 75 L 662 182 L 716 182" marker-end="url(#p-ok)"/>
+      <path d="M 598 149 L 638 149 L 638 194 L 716 194" marker-end="url(#p-ok)"/>
+      <path d="M 598 265 L 638 265 L 638 212 L 716 212" marker-end="url(#p-ok)"/>
+      <path d="M 598 339 L 662 339 L 662 226 L 716 226" marker-end="url(#p-ok)"/>
+    </g>
+    <text x="676" y="140" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="500" fill="#0a6b59">verified</text>
+
+    <!-- the fail-closed branch -->
+    <path d="M 469 176 L 469 204" stroke="#b3261e" stroke-width="2" fill="none" marker-end="url(#p-crit)"/>
+    <text x="469" y="220" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="500" fill="#b3261e" text-anchor="middle">fails closed: exits without running, and never</text>
+    <text x="469" y="234" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="500" fill="#b3261e" text-anchor="middle">falls back to the last good revision</text>
+
+  </g>
+</svg>

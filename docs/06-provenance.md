@@ -31,6 +31,8 @@ Code reaches a host four ways. Securing one well while leaving the others open
 is worse than doing nothing, because it creates the impression that the question
 was considered.
 
+![Four execution paths — remote scripts, the endpoint pull loop, packages and images, and the enrollment bootstrap — each passing through their own verification gate before anything executes on the host. The pull loop's gate has a second outcome: on a verification failure it exits without running rather than falling back to the last good revision.](img/provenance.svg)
+
 ### 1 · Remotely executed scripts
 
 The most obvious path, and the best behaved once it is set up.

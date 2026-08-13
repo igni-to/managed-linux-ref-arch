@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 360" width="880" height="360" role="img" aria-label="Git as the source of truth feeds an Ansible push for servers and a verified pull loop for endpoints, both of which write configuration to hosts. Separately the Fleet agent reads state from those same hosts and feeds the evidence pack. A change made by hand entering the hosts directly is caught by the reading path and reported as drift.">
+  <title>Enforce and verify are separate systems</title>
+  <desc>Configuration is written by one path and observed by another, so evidence never comes from the tool that made the change.</desc>
+
+  <rect x="0" y="0" width="880" height="360" fill="#efe8db"/>
+
+  <defs>
+    <marker id="v-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5b5348"/>
+    </marker>
+    <marker id="v-ok" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0a6b59"/>
+    </marker>
+    <marker id="v-crit" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#b3261e"/>
+    </marker>
+  </defs>
+
+  <g font-family="system-ui, -apple-system, Segoe UI, Helvetica, Arial, sans-serif">
+
+    <text x="20" y="34" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" letter-spacing="1.4" fill="#6b6052">ENFORCE</text>
+    <line x1="100" y1="30" x2="430" y2="30" stroke="#8a7a63" stroke-width="1"/>
+    <text x="520" y="34" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" letter-spacing="1.4" fill="#6b6052">VERIFY</text>
+    <line x1="580" y1="30" x2="860" y2="30" stroke="#8a7a63" stroke-width="1"/>
+
+    <rect x="20" y="140" width="150" height="70" rx="3" fill="#ffffff" stroke="#8a7a63" stroke-width="1.5"/>
+    <text x="95" y="172" font-size="14" font-weight="600" fill="#221e1a" text-anchor="middle">Git</text>
+    <text x="95" y="191" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#5b5348" text-anchor="middle">signed, reviewed</text>
+
+    <rect x="216" y="80" width="170" height="62" rx="3" fill="#ffffff" stroke="#8a7a63" stroke-width="1.5"/>
+    <text x="301" y="108" font-size="14" font-weight="600" fill="#221e1a" text-anchor="middle">Ansible push</text>
+    <text x="301" y="127" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#5b5348" text-anchor="middle">servers</text>
+
+    <rect x="216" y="208" width="170" height="62" rx="3" fill="#ffffff" stroke="#8a7a63" stroke-width="1.5"/>
+    <text x="301" y="236" font-size="14" font-weight="600" fill="#221e1a" text-anchor="middle">Verified pull</text>
+    <text x="301" y="255" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#5b5348" text-anchor="middle">endpoints</text>
+
+    <rect x="436" y="140" width="140" height="70" rx="3" fill="#e7dfd0" stroke="#8a7a63" stroke-width="1.5"/>
+    <text x="506" y="172" font-size="14" font-weight="600" fill="#221e1a" text-anchor="middle">Hosts</text>
+    <text x="506" y="191" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#5b5348" text-anchor="middle">actual state</text>
+
+    <rect x="626" y="140" width="150" height="70" rx="3" fill="#ffffff" stroke="#8a7a63" stroke-width="1.5"/>
+    <text x="701" y="172" font-size="14" font-weight="600" fill="#221e1a" text-anchor="middle">Fleet agent</text>
+    <text x="701" y="191" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#5b5348" text-anchor="middle">policies</text>
+
+    <rect x="806" y="140" width="54" height="70" rx="3" fill="#ffffff" stroke="#8a7a63" stroke-width="1.5"/>
+    <text x="833" y="167" font-size="13" font-weight="600" fill="#221e1a" text-anchor="middle">Pack</text>
+    <text x="833" y="186" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10" fill="#5b5348" text-anchor="middle">evidence</text>
+
+    <!-- writing path -->
+    <g stroke="#5b5348" stroke-width="1.5" fill="none">
+      <path d="M 170 160 L 194 160 L 194 111 L 210 111" marker-end="url(#v-ar)"/>
+      <path d="M 170 190 L 194 190 L 194 239 L 210 239" marker-end="url(#v-ar)"/>
+      <path d="M 386 111 L 412 111 L 412 160 L 430 160" marker-end="url(#v-ar)"/>
+      <path d="M 386 239 L 412 239 L 412 190 L 430 190" marker-end="url(#v-ar)"/>
+    </g>
+    <text x="416" y="140" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#5b5348">writes</text>
+
+    <!-- reading path -->
+    <path d="M 576 175 L 620 175" stroke="#0a6b59" stroke-width="2" fill="none" marker-end="url(#v-ok)"/>
+    <text x="598" y="164" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="500" fill="#0a6b59" text-anchor="middle">reads</text>
+    <path d="M 776 175 L 800 175" stroke="#5b5348" stroke-width="1.5" fill="none" marker-end="url(#v-ar)"/>
+
+    <!-- drift -->
+    <path d="M 506 316 L 506 216" stroke="#b3261e" stroke-width="2" fill="none" marker-end="url(#v-crit)"/>
+    <text x="506" y="334" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="500" fill="#b3261e" text-anchor="middle">a change made by hand</text>
+    <path d="M 701 216 L 701 288 L 546 288 L 546 274" stroke="#b3261e" stroke-width="2" stroke-dasharray="5 4" fill="none"/>
+    <text x="640" y="306" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" font-weight="500" fill="#b3261e" text-anchor="middle">reported as drift</text>
+
+  </g>
+</svg>
