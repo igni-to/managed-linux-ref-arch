@@ -2,7 +2,7 @@
 # Authentik deployment. Values here are safe defaults; the four secrets below
 # have no defaults on purpose and the role fails loudly without them.
 
-authentik_version: "2026.6"
+authentik_version: "2026.5.6"
 
 authentik_dir: /opt/authentik
 authentik_domain: "idp.{{ lab_domain | default('lab.example') }}"
