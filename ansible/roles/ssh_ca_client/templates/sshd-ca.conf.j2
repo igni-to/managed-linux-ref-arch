@@ -1,0 +1,48 @@
+# {{ ansible_managed }}
+#
+# Certificate authentication, and the settings that make it the only path in.
+
+# Trust certificates signed by the estate authority.
+TrustedUserCAKeys {{ ssh_ca_trusted_keys_file }}
+
+# Which principals in a certificate are accepted for a given local account.
+# Without this, sshd requires the principal to equal the username, which
+# breaks the moment a person's directory name differs from the account they
+# are logging into.
+AuthorizedPrincipalsFile /etc/ssh/authorized_principals
+
+{% if ssh_disable_authorized_keys %}
+# Certificates only. Pointing this at /dev/null is what makes "no host holds a
+# per-person credential" true: a key appended to a user's authorized_keys by
+# any means is no longer an access path.
+AuthorizedKeysFile /dev/null
+{% else %}
+# authorized_keys still honored. This is the rollout position, not the target
+# one — see ssh_disable_authorized_keys in the role defaults. Leaving it here
+# means a key handed out before certificates existed still works, which is
+# exactly the state IGN-AC-05 exists to end.
+AuthorizedKeysFile .ssh/authorized_keys
+{% endif %}
+
+PubkeyAuthentication {{ ssh_pubkey_authentication }}
+
+# Passwords off. While they are on, every account with one is an access path
+# the certificate model does not govern.
+PasswordAuthentication {{ ssh_password_authentication }}
+KbdInteractiveAuthentication {{ ssh_kbd_interactive_authentication }}
+PermitEmptyPasswords {{ ssh_permit_empty_passwords }}
+
+PermitRootLogin {{ ssh_permit_root_login }}
+
+MaxAuthTries {{ ssh_max_auth_tries }}
+LoginGraceTime {{ ssh_login_grace_time }}
+ClientAliveInterval {{ ssh_client_alive_interval }}
+ClientAliveCountMax {{ ssh_client_alive_count_max }}
+
+X11Forwarding {{ ssh_x11_forwarding }}
+
+# Certificates carry an identity the host did not choose, so the log has to
+# record which one was presented. Without VERBOSE the certificate's key id and
+# serial are absent, and an access record that cannot name the credential is
+# not evidence.
+LogLevel VERBOSE

@@ -26,12 +26,26 @@
 # anything that will depend on it, and it does not become a client of itself.
 
 - name: Identity provider
-  hosts: idp
+  hosts: identity
   become: true
   gather_facts: true
   tags: [authentik, identity]
   roles:
     - role: authentik
+
+# The certificate authority is its own group rather than being pinned to the
+# identity provider host. In a small estate they are the same machine; at any
+# size where that becomes a bad idea, moving the CA is an inventory change
+# rather than a rewrite. It runs after the identity provider because its OIDC
+# provisioner has to be able to reach it.
+
+- name: SSH certificate authority
+  hosts: ca
+  become: true
+  gather_facts: true
+  tags: [ssh_ca, identity]
+  roles:
+    - role: ssh_ca
 
 # ── Phase 2 — everything that authenticates against it ──────────────────────
 #
@@ -46,3 +60,17 @@
   tags: [identity_client, identity]
   roles:
     - role: identity_client
+
+# Certificate trust last, because it changes how SSH itself authenticates and
+# is therefore the play most able to make a host unreachable. Everything it
+# depends on — the escape hatch, a working directory, a running CA — is in
+# place by the time it runs, and the role asserts each of them rather than
+# assuming the ordering held.
+
+- name: SSH certificate trust
+  hosts: servers:desktops
+  become: true
+  gather_facts: true
+  tags: [ssh_ca_client, identity]
+  roles:
+    - role: ssh_ca_client

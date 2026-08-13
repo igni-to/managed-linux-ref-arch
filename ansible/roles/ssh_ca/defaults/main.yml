@@ -1,0 +1,45 @@
+---
+# The SSH certificate authority. Control IGN-AC-05.
+
+step_ca_version: "0.29.0"
+step_cli_version: "0.29.0"
+
+step_ca_dir: /etc/step-ca
+step_ca_user: step
+step_ca_name: "Estate SSH CA"
+step_ca_dns: "ca.{{ lab_domain | default('lab.example') }}"
+step_ca_port: 8443
+step_ca_address: ":{{ step_ca_port }}"
+
+# ── certificate lifetime ────────────────────────────────────────────────────
+#
+# The number that decides how real IGN-AC-03 is.
+#
+# A certificate cannot be revoked in any way an estate can rely on — the host
+# checks the signature and the expiry, and nothing else. So the lifetime *is*
+# the revocation window: when somebody is disabled in the identity provider,
+# their existing certificate keeps working until it expires, and no new one is
+# issued.
+#
+# Twenty hours covers a working day with margin, so nobody is re-authenticating
+# mid-task, and bounds the exposure to less than the 24 hours IGN-AC-03 claims.
+# Shortening it tightens offboarding and costs interruptions; lengthening it
+# past 24 hours makes the control's stated bound untrue and requires the
+# control to be reworded rather than quietly ignored.
+step_ca_ssh_user_cert_duration: 20h
+step_ca_ssh_host_cert_duration: 720h
+
+# The OIDC provisioner. Everything except the secret comes from
+# terraform/identity — see the ssh-ca.tf in that directory.
+step_ca_oidc_name: identity-provider
+step_ca_oidc_client_id: ssh-ca
+step_ca_oidc_configuration_endpoint: "https://{{ idc_ldap_host | default('idp.lab.example') }}/application/o/ssh-ca/.well-known/openid-configuration"
+
+# Which directory group may obtain a certificate at all. A person outside it
+# authenticates successfully and receives nothing, which is the correct
+# outcome and a confusing one — so it is stated here rather than implied.
+step_ca_allowed_group: linux-users
+
+step_ca_required_secrets:
+  - step_ca_oidc_client_secret
+  - step_ca_password

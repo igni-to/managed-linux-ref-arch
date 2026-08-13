@@ -1,0 +1,25 @@
+---
+# Certificate lifetimes, applied to the provisioner after it exists.
+#
+# Separated from the add step because `provisioner add` and `provisioner
+# update` take the same flags and the add only runs once — leaving the
+# durations here means changing them in defaults actually takes effect on the
+# next run instead of silently doing nothing forever.
+
+- name: Set the user and host certificate durations
+  ansible.builtin.command:
+    cmd: >-
+      step ca provisioner update {{ step_ca_oidc_name }}
+      --ssh-user-cert-duration={{ step_ca_ssh_user_cert_duration }}
+      --ssh-host-cert-duration={{ step_ca_ssh_host_cert_duration }}
+  environment:
+    STEPPATH: "{{ step_ca_dir }}"
+  become: true
+  become_user: "{{ step_ca_user }}"
+  register: step_ca_durations
+  # The command is not idempotent in its reporting: it exits 0 and prints the
+  # same thing whether or not anything changed, so there is nothing to key
+  # changed_when off. Reporting changed on every run would be a lie in the
+  # other direction, so this reports no change and the durations are asserted
+  # rather than tracked.
+  changed_when: false

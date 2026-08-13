@@ -1,0 +1,164 @@
+---
+# step-ca, configured to issue SSH certificates to people the identity
+# provider vouches for.
+#
+# Why a certificate authority rather than distributing keys: revocation. A key
+# added to authorized_keys has to be found and removed from every host that
+# ever received it, and the hosts that were unreachable during the removal keep
+# working. A certificate expires on its own, everywhere, whether or not
+# anything ran. That difference is the whole reason this component exists.
+#
+# What it does not do: replace the directory. The directory says who a person
+# is and what they are a member of; the certificate is the credential proving
+# they are that person right now. Separating those is what lets a server drop
+# its directory client later without losing its access model.
+
+- name: Fail early if a required secret is missing
+  ansible.builtin.assert:
+    that: vars[item] is defined and vars[item] | length > 0
+    fail_msg: >-
+      {{ item }} is not set. The CA's own password and the OIDC client secret
+      come from the secret store at run time. See docs/05-secrets.md.
+  loop: "{{ step_ca_required_secrets }}"
+  no_log: true
+
+- name: Create the service account
+  ansible.builtin.user:
+    name: "{{ step_ca_user }}"
+    system: true
+    home: "{{ step_ca_dir }}"
+    create_home: false
+    shell: /usr/sbin/nologin
+
+- name: Create the state directory
+  ansible.builtin.file:
+    path: "{{ step_ca_dir }}"
+    state: directory
+    owner: "{{ step_ca_user }}"
+    group: "{{ step_ca_user }}"
+    mode: "0700"
+
+- name: Install step-ca and the step CLI
+  ansible.builtin.include_tasks: install.yml
+
+# ── initialization ──────────────────────────────────────────────────────────
+#
+# `step ca init` is not idempotent — running it twice generates a new root and
+# invalidates every certificate and every host that trusts the old one. So it
+# is guarded on the config file, and the guard is the important part of this
+# task rather than an optimization.
+
+- name: Has the CA already been initialized?
+  ansible.builtin.stat:
+    path: "{{ step_ca_dir }}/config/ca.json"
+  register: step_ca_config
+
+- name: Initialize the CA
+  when: not step_ca_config.stat.exists
+  no_log: true
+  block:
+    - name: Write the CA password to a temporary file
+      ansible.builtin.copy:
+        content: "{{ step_ca_password }}"
+        dest: "{{ step_ca_dir }}/.init-password"
+        owner: "{{ step_ca_user }}"
+        group: "{{ step_ca_user }}"
+        mode: "0600"
+
+    - name: step ca init
+      # --ssh is what makes this an SSH authority rather than only an X.509
+      # one; without it the SSH provisioner endpoints do not exist and every
+      # `step ssh login` fails with a message about an unknown route.
+      ansible.builtin.command:
+        cmd: >-
+          step ca init
+          --name={{ step_ca_name | quote }}
+          --dns={{ step_ca_dns }}
+          --address={{ step_ca_address }}
+          --provisioner=bootstrap
+          --password-file={{ step_ca_dir }}/.init-password
+          --ssh
+        creates: "{{ step_ca_dir }}/config/ca.json"
+      become_user: "{{ step_ca_user }}"
+      become: true
+      environment:
+        STEPPATH: "{{ step_ca_dir }}"
+
+    - name: Remove the temporary password file
+      ansible.builtin.file:
+        path: "{{ step_ca_dir }}/.init-password"
+        state: absent
+
+- name: Store the CA password for the service to read at start
+  ansible.builtin.copy:
+    content: "{{ step_ca_password }}"
+    dest: "{{ step_ca_dir }}/password.txt"
+    owner: "{{ step_ca_user }}"
+    group: "{{ step_ca_user }}"
+    mode: "0400"
+  no_log: true
+  notify: restart step-ca
+
+# ── the OIDC provisioner ────────────────────────────────────────────────────
+
+- name: Is the identity provisioner already configured?
+  ansible.builtin.command: "step ca provisioner list"
+  environment:
+    STEPPATH: "{{ step_ca_dir }}"
+  become: true
+  become_user: "{{ step_ca_user }}"
+  register: step_ca_provisioners
+  changed_when: false
+  failed_when: false
+
+- name: Add the identity provider as an OIDC provisioner
+  when: step_ca_oidc_name not in (step_ca_provisioners.stdout | default(''))
+  ansible.builtin.command:
+    cmd: >-
+      step ca provisioner add {{ step_ca_oidc_name }}
+      --type=OIDC
+      --client-id={{ step_ca_oidc_client_id }}
+      --client-secret={{ step_ca_oidc_client_secret }}
+      --configuration-endpoint={{ step_ca_oidc_configuration_endpoint }}
+      --ssh
+      --listen-address=127.0.0.1:0
+  environment:
+    STEPPATH: "{{ step_ca_dir }}"
+  become: true
+  become_user: "{{ step_ca_user }}"
+  no_log: true
+  notify: restart step-ca
+
+- name: Set certificate lifetimes
+  ansible.builtin.include_tasks: durations.yml
+
+- name: Install the service unit
+  ansible.builtin.template:
+    src: step-ca.service.j2
+    dest: /etc/systemd/system/step-ca.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - reload systemd
+    - restart step-ca
+
+- name: Start the CA
+  ansible.builtin.systemd_service:
+    name: step-ca
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Read the SSH user CA public key
+  ansible.builtin.slurp:
+    src: "{{ step_ca_dir }}/certs/ssh_user_ca_key.pub"
+  register: step_ca_user_ca_pub
+  # Consumed by the ssh_ca_client role, which writes it into TrustedUserCAKeys
+  # on every host. This is the one value that has to travel between the two.
+  failed_when: false
+
+- name: Publish the user CA key as a fact
+  when: step_ca_user_ca_pub.content is defined
+  ansible.builtin.set_fact:
+    ssh_user_ca_public_key: "{{ step_ca_user_ca_pub.content | b64decode | trim }}"

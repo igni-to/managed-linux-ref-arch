@@ -1,0 +1,39 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Estate SSH certificate authority
+Documentation=https://smallstep.com/docs/step-ca
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=30
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User={{ step_ca_user }}
+Group={{ step_ca_user }}
+Environment=STEPPATH={{ step_ca_dir }}
+ExecStart=/usr/local/bin/step-ca {{ step_ca_dir }}/config/ca.json --password-file={{ step_ca_dir }}/password.txt
+ExecReload=/bin/kill --signal HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+
+# This process holds the private key that every host in the estate trusts.
+# The confinement below is not boilerplate — it is the difference between a
+# compromised CA process and a compromised estate.
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ReadWriteDirectories={{ step_ca_dir }}
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

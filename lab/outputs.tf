@@ -72,7 +72,7 @@ output "ansible_inventory" {
     %{endif~}
     %{endfor~}
 
-    [idp]
+    [identity]
     %{for name, m in local.machines~}
     %{if m.role == "idp"~}
     ${name} ansible_host=${m.ip}
@@ -93,6 +93,11 @@ output "ansible_inventory" {
     %{endif~}
     %{endfor~}
 
+    # The certificate authority colocates with the identity provider in the
+    # lab. Its own group so that site.yml targets a role rather than a host.
+    [ca:children]
+    identity
+
     [lab:children]
     gateway
     behind_gateway
@@ -101,7 +106,7 @@ output "ansible_inventory" {
     # not be in here: giving it a ProxyJump to itself produces a connection
     # that hangs rather than fails, which costs an afternoon the first time.
     [behind_gateway:children]
-    idp
+    identity
     servers
     desktops
 

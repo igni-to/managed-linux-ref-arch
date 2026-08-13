@@ -1,0 +1,47 @@
+---
+# Make a host trust the certificate authority, and stop trusting anything else.
+# Controls IGN-AC-05, and the sshd half of IGN-EP-03.
+
+# The CA's public key. Normally discovered from the ssh_ca role's fact during
+# a full site run; set explicitly when configuring a host in isolation.
+ssh_user_ca_public_key: "{{ hostvars[groups['ca'][0]]['ssh_user_ca_public_key'] | default('') if groups['ca'] | default([]) | length > 0 else '' }}"
+
+ssh_ca_trusted_keys_file: /etc/ssh/trusted_user_ca_keys.pub
+
+# ── principals ──────────────────────────────────────────────────────────────
+#
+# A certificate carries principals; sshd only lets a certificate in if one of
+# them matches. Deriving principals from directory groups is what makes group
+# membership the thing that grants shell access, rather than a second list
+# somebody maintains per host.
+#
+# The map is host class to the group whose members may log in there. A class
+# absent from this map accepts no certificates at all, which is the right
+# default: a new host class should have to say who may reach it.
+ssh_ca_principals:
+  servers: linux-users
+  desktops: linux-users
+
+# ── hardening ───────────────────────────────────────────────────────────────
+#
+# Password authentication off is the point of the exercise, not a bonus: while
+# it is on, every account with a password is an access path the certificate
+# model does not govern, and offboarding has to reach it separately.
+ssh_permit_root_login: "no"
+ssh_password_authentication: "no"
+ssh_kbd_interactive_authentication: "no"
+ssh_pubkey_authentication: "yes"
+ssh_permit_empty_passwords: "no"
+ssh_x11_forwarding: "no"
+ssh_max_auth_tries: 4
+ssh_login_grace_time: 30
+ssh_client_alive_interval: 300
+ssh_client_alive_count_max: 2
+
+# Whether authorized_keys files still work at all.
+#
+# Off is the target state — it is what makes "no host holds a per-person
+# credential" true rather than aspirational. It is a variable because turning
+# it off before certificates demonstrably work locks everyone out of the host,
+# and the honest rollout order is: certificates working, verified, then this.
+ssh_disable_authorized_keys: false

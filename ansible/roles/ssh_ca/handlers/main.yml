@@ -1,0 +1,11 @@
+---
+- name: reload systemd
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  listen: reload systemd
+
+- name: restart step-ca
+  ansible.builtin.systemd_service:
+    name: step-ca
+    state: restarted
+  listen: restart step-ca

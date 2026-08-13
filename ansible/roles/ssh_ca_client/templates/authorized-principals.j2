@@ -1,0 +1,12 @@
+# {{ ansible_managed }}
+#
+# Certificate principals accepted on this host.
+#
+# A certificate issued by the CA carries the principals its holder is entitled
+# to. sshd admits the connection only if one of them appears here, which is
+# what makes directory group membership the thing that grants shell access:
+# remove somebody from {{ ssh_ca_host_principal }} and their next certificate
+# does not carry it.
+#
+# Host class: {{ group_names | join(', ') }}
+{{ ssh_ca_host_principal }}

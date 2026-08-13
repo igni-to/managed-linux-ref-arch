@@ -85,6 +85,8 @@ controls:
     soc2: [CC6.1, CC6.3]
     status: planned
     implemented_by:
+      - terraform/identity/ssh-ca.tf
+      - ansible/roles/ssh_ca
       - ansible/roles/ssh_ca_client
     verified_by:
       - fleet-policy:ssh-ca-only
