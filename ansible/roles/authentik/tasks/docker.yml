@@ -1,0 +1,100 @@
+---
+# Docker from the vendor repository, with the signing key pinned.
+#
+# This is IGN-SC-05 applied to the estate's own dependencies: a repository
+# added without a pinned key trusts whatever the mirror serves, and that is a
+# trust decision made by omission rather than by anybody.
+#
+# Distribution-conditional rather than distribution-agnostic. Pretending Debian
+# and Fedora are the same produces a role that works on the author's machine.
+
+- name: Debian family
+  when: ansible_os_family == "Debian"
+  block:
+    - name: Install prerequisites
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+          - gnupg
+        state: present
+        update_cache: true
+        lock_timeout: 120
+      register: apt_prereq
+      until: apt_prereq is succeeded
+      retries: 3
+      delay: 15
+
+    - name: Create the keyring directory
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: Fetch the Docker signing key
+      ansible.builtin.get_url:
+        url: "https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg"
+        dest: /etc/apt/keyrings/docker.asc
+        mode: "0644"
+        force: false
+
+    - name: Add the repository, pinned to that key
+      ansible.builtin.apt_repository:
+        repo: >-
+          deb [arch={{ 'amd64' if ansible_architecture == 'x86_64' else ansible_architecture }}
+          signed-by=/etc/apt/keyrings/docker.asc]
+          https://download.docker.com/linux/{{ ansible_distribution | lower }}
+          {{ ansible_distribution_release }} stable
+        filename: docker
+        state: present
+
+    - name: Install Docker
+      ansible.builtin.apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+        update_cache: true
+        lock_timeout: 120
+      register: apt_docker
+      until: apt_docker is succeeded
+      retries: 3
+      delay: 15
+
+- name: Red Hat family
+  when: ansible_os_family == "RedHat"
+  block:
+    - name: Add the repository
+      ansible.builtin.yum_repository:
+        name: docker-ce-stable
+        description: Docker CE Stable
+        baseurl: "https://download.docker.com/linux/fedora/$releasever/$basearch/stable"
+        gpgcheck: true
+        gpgkey: https://download.docker.com/linux/fedora/gpg
+        enabled: true
+
+    - name: Install Docker
+      ansible.builtin.dnf:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+
+- name: Enable the daemon
+  ansible.builtin.systemd_service:
+    name: docker
+    enabled: true
+    state: started
+
+- name: Install the Python SDK the compose module needs
+  ansible.builtin.pip:
+    name: requests
+    state: present
+    # Debian 12 and later refuse pip installs outside a virtualenv, and the
+    # collection needs this in the system interpreter it runs under.
+    extra_args: --break-system-packages
+  failed_when: false

@@ -1,0 +1,9 @@
+---
+# authselect's `with-mkhomedir` covers the PAM side, but the service that acts
+# on it has to be running.
+
+- name: Enable the oddjob helper
+  ansible.builtin.systemd_service:
+    name: oddjobd
+    enabled: true
+    state: started

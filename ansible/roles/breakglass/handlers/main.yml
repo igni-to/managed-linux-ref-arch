@@ -1,0 +1,9 @@
+---
+- name: reload sshd
+  ansible.builtin.systemd_service:
+    name: "{{ 'ssh' if ansible_os_family == 'Debian' else 'sshd' }}"
+    state: reloaded
+  # A host without sshd is a legitimate configuration, and this handler should
+  # not be the thing that fails the run on one.
+  failed_when: false
+  listen: reload sshd

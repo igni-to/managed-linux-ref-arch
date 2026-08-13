@@ -1,0 +1,31 @@
+---
+# Break-glass. Controls IGN-AC-07 and IGN-AC-08.
+
+# One account per host class, not one per host. Per-host credentials are a
+# rotation burden nobody sustains, and a single estate-wide credential means a
+# single revocation event takes out every escape hatch at once.
+breakglass_user: "breakglass-{{ breakglass_host_class | default('default') }}"
+breakglass_host_class: "{{ group_names | difference(['all', 'lab', 'behind_gateway']) | first | default('default') }}"
+
+breakglass_uid: 998
+breakglass_shell: /bin/bash
+breakglass_home: "/var/lib/{{ breakglass_user }}"
+
+# The tag every authentication as this account is written under. The monitoring
+# plane alerts on it — see IGN-MO-03. Distinctive on purpose: it has to be
+# greppable without matching anything else in the estate's logs.
+breakglass_log_tag: BREAKGLASS-USED
+
+# Undefined on purpose. The password hash comes from the secret store at run
+# time. There is no default, because a default break-glass password is a
+# universal one.
+#
+#   breakglass_password_hash   a crypt(3) hash, not a plaintext password
+breakglass_required_secrets:
+  - breakglass_password_hash
+
+# Whether the account may authenticate over SSH. Off by default: break-glass
+# exists for when the network path or the directory is broken, which is when
+# console access is what you actually have. Leaving it reachable over SSH turns
+# an escape hatch into an attack surface that is permanently valid.
+breakglass_allow_ssh: false

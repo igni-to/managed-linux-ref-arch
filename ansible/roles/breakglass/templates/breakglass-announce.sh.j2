@@ -1,0 +1,35 @@
+#!/bin/sh
+# {{ ansible_managed }}
+#
+# Runs from pam_exec on every authentication, and says something only when the
+# account is the break-glass one. IGN-AC-07 requires that its use is loud;
+# IGN-MO-03 requires that the noise reaches a person.
+#
+# Written in /bin/sh with no dependencies because it runs inside PAM, on hosts
+# whose state is by definition uncertain when it matters. Anything that could
+# fail to start here would fail exactly when the record is most needed.
+
+set -u
+
+# pam_exec provides these. If PAM_USER is missing something is wrong with the
+# invocation, and staying quiet is the wrong response, so treat it as unknown
+# and carry on.
+pam_user="${PAM_USER:-unknown}"
+pam_rhost="${PAM_RHOST:-console}"
+pam_service="${PAM_SERVICE:-unknown}"
+pam_type="${PAM_TYPE:-unknown}"
+
+[ "$pam_user" = "{{ breakglass_user }}" ] || exit 0
+
+# Only the session-open event, or a single login produces several lines and the
+# alert fires more than once for one event.
+[ "$pam_type" = "open_session" ] || exit 0
+
+logger -p auth.crit -t "{{ breakglass_log_tag }}" \
+  "break-glass account {{ breakglass_user }} used on $(hostname) via ${pam_service} from ${pam_rhost}"
+
+# Never fail the authentication. If logging is broken, the right outcome is
+# still that the person gets in — this account exists for the situation where
+# things are already badly wrong, and a logging failure must not become the
+# reason nobody can recover the estate.
+exit 0

@@ -1,0 +1,46 @@
+---
+# Authentik deployment. Values here are safe defaults; the four secrets below
+# have no defaults on purpose and the role fails loudly without them.
+
+authentik_version: "2026.6"
+
+authentik_dir: /opt/authentik
+authentik_domain: "idp.{{ lab_domain | default('lab.example') }}"
+
+# Ports. LDAP is served by the embedded outpost — see tasks/main.yml for why
+# that choice was made rather than a separate outpost container.
+authentik_http_port: 9000
+authentik_https_port: 9443
+authentik_ldap_port: 389
+authentik_ldaps_port: 636
+
+# Postgres and Redis run beside Authentik rather than as estate services. The
+# identity provider is the one thing that must be restorable on its own, and a
+# database it shares with anything else makes that restore a negotiation.
+authentik_postgres_version: "16-alpine"
+authentik_redis_version: "7-alpine"
+authentik_postgres_db: authentik
+authentik_postgres_user: authentik
+
+# ── secrets ─────────────────────────────────────────────────────────────────
+#
+# Deliberately undefined. They come from the secret store at run time and are
+# never written to a variables file — see docs/05-secrets.md. The role asserts
+# their presence before it does anything, so the failure is a clear message
+# rather than a container that starts and then behaves strangely.
+#
+#   authentik_secret_key        signing key; rotating it invalidates sessions
+#   authentik_postgres_password
+#   authentik_bootstrap_password  initial password for the built-in admin
+#   authentik_bootstrap_token     API token Terraform authenticates with
+#
+# The bootstrap token is what makes this zero-touch. Without it, somebody has
+# to open the web interface, complete a setup wizard and mint a token by hand
+# before any of terraform/identity/ can run — which would put a manual step in
+# the middle of the thing this architecture claims not to have.
+
+authentik_required_secrets:
+  - authentik_secret_key
+  - authentik_postgres_password
+  - authentik_bootstrap_password
+  - authentik_bootstrap_token

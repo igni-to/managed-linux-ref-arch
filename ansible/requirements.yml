@@ -1,0 +1,9 @@
+---
+# Collections this repository depends on. Pinned to a floor rather than an
+# exact version: these are stable interfaces, and pinning exactly means an
+# estate cannot pick up a security fix without a commit here.
+collections:
+  - name: community.docker
+    version: ">=3.13.0"
+  - name: ansible.posix
+    version: ">=1.6.0"

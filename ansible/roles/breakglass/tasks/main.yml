@@ -1,0 +1,120 @@
+---
+# The escape hatch, applied to every host before it becomes a directory client.
+#
+# Why this role runs first, everywhere, always: the identity provider is a
+# server inside the estate it governs. If a directory rollout goes wrong — a
+# bad TLS certificate, a typo in a search base, an outpost that did not start —
+# then hosts stop authenticating, and the host you need to log into to fix it
+# is one of them. This account is what makes that recoverable.
+#
+# It is a control rather than a back door because of three properties, and all
+# three are implemented here:
+#
+#   1. It is local, and depends on nothing above Layer 0.
+#   2. Its use is loud — every authentication is logged under a distinctive
+#      tag for the monitoring plane to alert on.
+#   3. It is exercised on a schedule, and the exercise produces a record.
+#      That part is a runbook rather than code: see docs/runbooks/break-glass.md.
+
+- name: Fail early if the credential is missing
+  ansible.builtin.assert:
+    that: breakglass_password_hash is defined and breakglass_password_hash | length > 0
+    fail_msg: >-
+      breakglass_password_hash is not set. It comes from the secret store at
+      run time, as a crypt(3) hash. A default would be a universal password.
+  no_log: true
+
+- name: Create the account
+  ansible.builtin.user:
+    name: "{{ breakglass_user }}"
+    uid: "{{ breakglass_uid }}"
+    shell: "{{ breakglass_shell }}"
+    home: "{{ breakglass_home }}"
+    create_home: true
+    password: "{{ breakglass_password_hash }}"
+    # System account: it should not appear in a login greeter's user list, and
+    # nothing should offer it as a normal way in.
+    system: true
+    state: present
+  no_log: true
+
+- name: Grant full privilege, with a password
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/60-{{ breakglass_user }}"
+    owner: root
+    group: root
+    mode: "0440"
+    # NOPASSWD is deliberately absent. This account already holds the keys to
+    # the host; a second factor of "knows the password" costs nothing in the
+    # scenario it exists for, where somebody is at a console with the
+    # credential in front of them.
+    content: |
+      # {{ ansible_managed }}
+      # Break-glass. IGN-AC-07. Use is alerted on — see /etc/pam.d and IGN-MO-03.
+      {{ breakglass_user }} ALL=(ALL) ALL
+    validate: visudo -cf %s
+
+# ── making it loud ──────────────────────────────────────────────────────────
+#
+# pam_exec rather than auditd. auditd would catch more, and it is another
+# service to install, configure and keep running on every host. This fires on
+# the exact event that matters and works identically on both distribution
+# families.
+
+- name: Install the announcement script
+  ansible.builtin.template:
+    src: breakglass-announce.sh.j2
+    dest: /usr/local/sbin/breakglass-announce
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Announce every authentication as this account
+  ansible.builtin.lineinfile:
+    path: "/etc/pam.d/{{ item }}"
+    line: "session optional pam_exec.so /usr/local/sbin/breakglass-announce"
+    insertafter: EOF
+    state: present
+  loop:
+    - login
+    - sshd
+    - su
+  # sshd's PAM file is absent on a host without sshd, and that is fine rather
+  # than an error.
+  failed_when: false
+
+- name: Keep the account off SSH unless deliberately allowed
+  ansible.builtin.blockinfile:
+    path: /etc/ssh/sshd_config.d/60-breakglass.conf
+    create: true
+    owner: root
+    group: root
+    mode: "0644"
+    marker: "# {mark} ANSIBLE MANAGED — break-glass"
+    block: |
+      {% if breakglass_allow_ssh %}
+      # Deliberately reachable over SSH in this estate. Reconsider: break-glass
+      # exists for when the network or the directory is broken, and both of
+      # those are situations where console access is what you actually have.
+      Match User {{ breakglass_user }}
+          PasswordAuthentication yes
+      {% else %}
+      # Console only. An escape hatch reachable from the network is a
+      # permanently valid credential on every host, which is a worse problem
+      # than the one it solves.
+      DenyUsers {{ breakglass_user }}
+      {% endif %}
+  notify: reload sshd
+
+- name: Record that this host has an escape hatch
+  ansible.builtin.copy:
+    dest: /etc/breakglass-account
+    owner: root
+    group: root
+    mode: "0444"
+    content: |
+      # {{ ansible_managed }}
+      # IGN-AC-07. Credential is in the secret store, not here.
+      account={{ breakglass_user }}
+      class={{ breakglass_host_class }}
+      ssh_allowed={{ breakglass_allow_ssh | lower }}

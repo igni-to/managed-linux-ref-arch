@@ -1,0 +1,87 @@
+# {{ ansible_managed }}
+#
+# Authentik: server, worker, database, cache.
+#
+# The server publishes LDAP as well as HTTP because the outpost is embedded —
+# see the role's tasks/main.yml for why, and what it costs.
+
+services:
+  postgresql:
+    image: docker.io/library/postgres:{{ authentik_postgres_version }}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      start_period: 20s
+      interval: 30s
+      retries: 5
+      timeout: 5s
+    volumes:
+      - database:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: ${PG_PASS}
+      POSTGRES_USER: ${PG_USER}
+      POSTGRES_DB: ${PG_DB}
+    # Not published. The database is reachable only from the compose network,
+    # which is the difference between a service and an exposure.
+    networks: [authentik]
+
+  redis:
+    image: docker.io/library/redis:{{ authentik_redis_version }}
+    command: --save 60 1 --loglevel warning
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      start_period: 20s
+      interval: 30s
+      retries: 5
+      timeout: 3s
+    volumes:
+      - redis:/data
+    networks: [authentik]
+
+  server:
+    image: ghcr.io/goauthentik/server:{{ authentik_version }}
+    restart: unless-stopped
+    command: server
+    env_file: .env
+    volumes:
+      - media:/media
+      - templates:/templates
+    ports:
+      - "{{ authentik_http_port }}:9000"
+      - "{{ authentik_https_port }}:9443"
+      # The embedded outpost serves these. Without them Authentik runs
+      # perfectly and no host can authenticate against it, which is a
+      # confusing failure the first time.
+      - "{{ authentik_ldap_port }}:3389"
+      - "{{ authentik_ldaps_port }}:6636"
+    depends_on:
+      postgresql: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    networks: [authentik]
+
+  worker:
+    image: ghcr.io/goauthentik/server:{{ authentik_version }}
+    restart: unless-stopped
+    command: worker
+    env_file: .env
+    # The worker runs migrations and applies the bootstrap token, so it must
+    # be able to reach the database before the server is useful.
+    volumes:
+      - media:/media
+      - certs:/certs
+      - templates:/templates
+    depends_on:
+      postgresql: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    networks: [authentik]
+
+volumes:
+  database:
+  redis:
+  media:
+  certs:
+  templates:
+
+networks:
+  authentik:

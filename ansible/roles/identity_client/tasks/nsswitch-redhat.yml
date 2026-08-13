@@ -1,0 +1,10 @@
+---
+# Red Hat family has authselect, which owns both files and will revert manual
+# edits the next time anything invokes it.
+
+- name: Select the sssd profile
+  ansible.builtin.command: authselect select sssd with-mkhomedir --force
+  register: authselect
+  changed_when: "'No existing configuration detected' in authselect.stderr or authselect.rc == 0"
+  failed_when: authselect.rc != 0
+  notify: restart sssd

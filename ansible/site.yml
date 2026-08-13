@@ -1,0 +1,48 @@
+---
+# The estate, in dependency order.
+#
+# The order here is not a preference. It follows the ladder in
+# docs/00-overview.md, and one edge of it is a safety property rather than a
+# convenience:
+#
+#   Break-glass is applied before any directory client, on every host.
+#
+# A host that gets SSSD before it has a working local escape hatch is a host
+# that a misconfigured directory locks everyone out of — including the person
+# who has to fix the directory. Reordering these two plays is the single most
+# expensive edit available in this file, and it will look like tidying up.
+
+- name: Break-glass access (every host, first, always)
+  hosts: all
+  become: true
+  gather_facts: true
+  tags: [breakglass, identity]
+  roles:
+    - role: breakglass
+
+# ── Phase 1 — the identity provider itself ──────────────────────────────────
+#
+# The provider is a host in the estate it governs, so it is configured before
+# anything that will depend on it, and it does not become a client of itself.
+
+- name: Identity provider
+  hosts: idp
+  become: true
+  gather_facts: true
+  tags: [authentik, identity]
+  roles:
+    - role: authentik
+
+# ── Phase 2 — everything that authenticates against it ──────────────────────
+#
+# Deliberately not `all`. The identity provider is excluded: making it a
+# directory client of the directory it serves creates a startup ordering
+# problem that only appears on reboot, which is the worst time to find it.
+
+- name: Directory clients
+  hosts: servers:desktops
+  become: true
+  gather_facts: true
+  tags: [identity_client, identity]
+  roles:
+    - role: identity_client

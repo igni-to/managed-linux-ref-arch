@@ -1,0 +1,21 @@
+---
+# Debian wires SSSD into NSS and PAM through pam-auth-update, which is
+# idempotent and understands the local administrator's own choices — editing
+# /etc/nsswitch.conf and the PAM stack by hand fights with it on the next
+# package upgrade.
+
+- name: Enable the SSS profile in PAM
+  ansible.builtin.command: pam-auth-update --enable sss
+  register: pam_update
+  changed_when: "'Nothing to do' not in pam_update.stdout"
+
+- name: Add sss to the name service switch
+  ansible.builtin.lineinfile:
+    path: /etc/nsswitch.conf
+    regexp: '^{{ item }}:'
+    line: '{{ item }}:         files sss'
+  loop:
+    - passwd
+    - group
+    - shadow
+  notify: restart sssd

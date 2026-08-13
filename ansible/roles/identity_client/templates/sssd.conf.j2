@@ -1,0 +1,89 @@
+; {{ ansible_managed }}
+;
+; Mode 0600 — SSSD refuses to start otherwise, without saying so clearly.
+
+[sssd]
+config_file_version = 2
+services = nss, pam
+domains = {{ idc_ldap_host }}
+
+[nss]
+; Filter the accounts that must never come from the directory. root is
+; obvious; the break-glass account matters more, because resolving it through
+; the directory would make the escape hatch depend on the thing it exists to
+; escape from.
+filter_users = root,{{ breakglass_user | default('breakglass-default') }}
+filter_groups = root
+
+[pam]
+offline_credentials_expiration = {{ idc_offline_credentials_expiration }}
+offline_failed_login_attempts = {{ idc_offline_failed_login_attempts }}
+offline_failed_login_delay = {{ idc_offline_failed_login_delay }}
+
+[domain/{{ idc_ldap_host }}]
+id_provider = ldap
+auth_provider = ldap
+chpass_provider = none
+
+ldap_uri = {{ idc_ldap_uri }}
+ldap_search_base = {{ idc_base_dn }}
+ldap_user_search_base = {{ idc_user_search_base }}
+ldap_group_search_base = {{ idc_group_search_base }}
+
+ldap_default_bind_dn = {{ idc_bind_dn }}
+ldap_default_authtok = {{ idc_bind_password }}
+
+; TLS, and verified. `ldap_tls_reqcert = never` is the line that appears in
+; every tutorial and it turns LDAPS into an encrypted channel to whoever
+; answered, which is not the property wanted from an authentication source.
+ldap_tls_reqcert = demand
+{% if idc_tls_ca_file is defined %}
+ldap_tls_cacert = {{ idc_tls_ca_file }}
+{% endif %}
+
+; ── POSIX attributes ────────────────────────────────────────────────────────
+;
+; Authentik's LDAP provider presents users and groups with these object
+; classes, and supplies uidNumber and gidNumber from the ranges configured on
+; the provider. If accounts resolve without a uid, that provider setting is
+; where to look.
+ldap_schema = rfc2307bis
+ldap_user_object_class = user
+ldap_group_object_class = group
+ldap_user_name = cn
+ldap_user_uid_number = uidNumber
+ldap_user_gid_number = gidNumber
+ldap_user_home_directory = homeDirectory
+ldap_user_shell = loginShell
+ldap_group_name = cn
+ldap_group_gid_number = gidNumber
+ldap_group_member = member
+
+{% if not idc_enumerate %}
+; Off deliberately — see defaults/main.yml. Individual lookups still work,
+; which is all that logging in requires.
+enumerate = false
+{% else %}
+enumerate = true
+{% endif %}
+
+; ── the cache ───────────────────────────────────────────────────────────────
+;
+; Rule 3 of the dependency ladder. These settings decide whether anybody can
+; log in while the identity provider is down — which is the moment somebody
+; needs to log in to fix it.
+;
+; An untested cache is an assumption with a config file attached, so there is
+; a test: docs/runbooks/idp-down.md takes the provider down and proves a login
+; still works.
+cache_credentials = {{ 'true' if idc_cache_credentials else 'false' }}
+account_cache_expiration = {{ idc_offline_credentials_expiration }}
+
+; Fall back to a sensible home and shell when the directory does not supply
+; them, rather than creating an account that cannot log in.
+fallback_homedir = /home/%u
+default_shell = /bin/bash
+
+; Full names only. Without this every login is user@domain, which is correct
+; and which nobody types.
+use_fully_qualified_names = false

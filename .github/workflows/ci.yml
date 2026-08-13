@@ -146,11 +146,33 @@ jobs:
           terraform_wrapper: false
       - name: formatting
         run: terraform fmt -check -recursive
-      - name: the lab configuration is valid
-        working-directory: lab
+      - name: every configuration is valid
         run: |
-          terraform init -backend=false -input=false
-          terraform validate
+          for dir in lab terraform/*/; do
+            [ -n "$(ls "$dir"/*.tf 2>/dev/null)" ] || continue
+            echo "── $dir"
+            # -backend=false so that a configuration declaring a backend can
+            # still be validated without credentials for it.
+            terraform -chdir="$dir" init -backend=false -input=false
+            terraform -chdir="$dir" validate
+          done
+
+  # Syntax only. Running the playbooks needs an estate, and this catches the
+  # class of error that otherwise surfaces halfway through a real run — an
+  # undefined variable in a template, a task file that does not parse.
+  ansible:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - run: pip install ansible-core
+      - name: the playbook parses
+        working-directory: ansible
+        run: |
+          ansible-galaxy collection install -r requirements.yml
+          ansible-playbook -i inventory.example.ini --syntax-check site.yml
 
   controls:
     runs-on: ubuntu-latest

@@ -1,0 +1,9 @@
+---
+# Home directory on first login. Without it a directory account can
+# authenticate and lands in a directory that does not exist, which presents as
+# a shell that starts in / and cannot write anything.
+
+- name: Enable mkhomedir
+  ansible.builtin.command: pam-auth-update --enable mkhomedir
+  register: mkhomedir
+  changed_when: "'Nothing to do' not in mkhomedir.stdout"

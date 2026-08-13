@@ -1,0 +1,128 @@
+---
+# Join a host to the directory.
+#
+# Two things this role deliberately does not do:
+#
+#   It does not remove local accounts. The break-glass account and the
+#   bootstrap administrator both have to survive a directory join, and a role
+#   that tidies up local users would remove the estate's only escape hatch as
+#   its final act.
+#
+#   It does not configure authentication for the identity provider host
+#   itself. site.yml excludes it — a directory serving itself has a startup
+#   ordering problem that only appears on reboot.
+
+- name: Fail early if the bind credential is missing
+  ansible.builtin.assert:
+    that: idc_bind_password is defined and idc_bind_password | length > 0
+    fail_msg: >-
+      idc_bind_password is not set. It comes from the secret store at run time.
+  no_log: true
+
+- name: Refuse to run before break-glass exists
+  ansible.builtin.stat:
+    path: /etc/breakglass-account
+  register: idc_breakglass
+
+- name: Assert the escape hatch is present
+  ansible.builtin.assert:
+    that: idc_breakglass.stat.exists
+    fail_msg: >-
+      This host has no break-glass account, so joining it to the directory
+      would make a directory failure unrecoverable. Run the breakglass role
+      first — site.yml already orders it that way, so reaching this message
+      means the play was run with a tag or a limit that skipped it.
+
+- name: Install SSSD
+  ansible.builtin.package:
+    name: "{{ idc_packages[ansible_os_family] }}"
+    state: present
+  vars:
+    idc_packages:
+      Debian:
+        - sssd
+        - sssd-tools
+        - sssd-ldap
+        - libnss-sss
+        - libpam-sss
+        - ldap-utils
+      RedHat:
+        - sssd
+        - sssd-tools
+        - sssd-ldap
+        - oddjob-mkhomedir
+        - openldap-clients
+
+- name: Render sssd.conf
+  ansible.builtin.template:
+    src: sssd.conf.j2
+    dest: /etc/sssd/sssd.conf
+    owner: root
+    group: root
+    # SSSD refuses to start if this file is readable by anyone else, and the
+    # error message does not say so clearly.
+    mode: "0600"
+  no_log: true
+  notify: restart sssd
+
+- name: Enable SSSD in the name service switch and PAM
+  ansible.builtin.include_tasks: "nsswitch-{{ ansible_os_family | lower }}.yml"
+
+- name: Create home directories on first login
+  ansible.builtin.include_tasks: "mkhomedir-{{ ansible_os_family | lower }}.yml"
+
+# ── privilege ───────────────────────────────────────────────────────────────
+#
+# Rendered into a file rather than served from the directory over LDAP sudo
+# rules. Two reasons, and the second is the important one:
+#
+#   The effective policy is a file you can read on the host, diff against the
+#   repository, and reason about at 2am without querying anything.
+#
+#   It keeps sudo working when the directory is down. LDAP-served sudo rules
+#   fail closed during an outage, which means the person recovering the estate
+#   loses privilege at the moment they need it.
+
+- name: Grant sudo to the administrators group
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/70-directory-admins
+    owner: root
+    group: root
+    mode: "0440"
+    content: |
+      # {{ ansible_managed }}
+      # IGN-AC-06. Membership is managed in terraform/identity; this file only
+      # maps the group onto privilege.
+      #
+      # NOPASSWD is absent deliberately. Adding it here would apply to every
+      # administrator on every host at once, which is the kind of exception
+      # IGN-AC-06 requires to be written down and reviewed rather than typed.
+      %{{ idc_sudo_group }} ALL=(ALL) ALL
+    validate: visudo -cf %s
+
+- name: Start SSSD
+  ansible.builtin.systemd_service:
+    name: sssd
+    enabled: true
+    state: started
+
+# Verification rather than trust. The role has configured a directory client;
+# whether the host can actually resolve a directory identity is a different
+# question, and it is the one that matters.
+- name: Check that a directory group resolves
+  ansible.builtin.command: "getent group {{ idc_sudo_group }}"
+  register: idc_getent
+  changed_when: false
+  failed_when: false
+
+- name: Report the join
+  ansible.builtin.assert:
+    that: idc_getent.rc == 0
+    fail_msg: >-
+      SSSD is configured and running, but '{{ idc_sudo_group }}' does not
+      resolve. Usual causes, in the order worth checking: the LDAP provider's
+      base DN does not match idc_base_dn; the bind account cannot read the
+      group tree; or the identity provider is not publishing LDAPS on
+      {{ idc_ldap_port }} because the embedded outpost has no LDAP provider
+      assigned to it.
+    success_msg: "Directory join verified — {{ idc_sudo_group }} resolves."

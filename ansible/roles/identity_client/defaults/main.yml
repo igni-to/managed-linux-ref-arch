@@ -1,0 +1,48 @@
+---
+# SSSD against the identity provider's LDAP interface.
+# Controls IGN-AC-01, IGN-AC-02, IGN-AC-06.
+
+idc_ldap_host: "idp.{{ lab_domain | default('lab.example') }}"
+idc_ldap_port: 636
+idc_ldap_uri: "ldaps://{{ idc_ldap_host }}:{{ idc_ldap_port }}"
+
+# Authentik serves a search base derived from the LDAP provider's configured
+# base DN. These must match terraform/identity or nothing resolves — and the
+# failure looks like "the user does not exist" rather than anything about DNs.
+idc_base_dn: "DC=lab,DC=example"
+idc_user_search_base: "ou=users,{{ idc_base_dn }}"
+idc_group_search_base: "ou=groups,{{ idc_base_dn }}"
+
+# The bind account. Authentik requires a real service account for LDAP binds;
+# its password comes from the secret store.
+idc_bind_dn: "cn=ldap-service,ou=users,{{ idc_base_dn }}"
+
+# ── the cache ───────────────────────────────────────────────────────────────
+#
+# This is the load-bearing setting in the whole role, and Rule 3 of the
+# dependency ladder exists because of it.
+#
+# The identity provider is a server inside the estate it governs. When it is
+# down, these values decide whether anybody can log in to fix it. Fourteen days
+# is chosen so that an outage over a holiday period does not also become a
+# lockout; shorten it if offboarding within 24 hours matters more than
+# recoverability, and understand that you are making exactly that trade.
+#
+# An untested cache is not a control. docs/runbooks/idp-down.md is the test.
+idc_cache_credentials: true
+idc_offline_credentials_expiration: 14
+idc_offline_failed_login_attempts: 5
+idc_offline_failed_login_delay: 5
+
+# Enumeration off. It is convenient — `getent passwd` lists everybody — and on
+# a directory of any size it is a performance problem and an information
+# disclosure at once. Individual lookups still work, which is what logging in
+# needs.
+idc_enumerate: false
+
+# Which directory group grants administrative privilege. Membership is managed
+# in terraform/identity; this only maps it onto sudo. IGN-AC-06.
+idc_sudo_group: linux-admins
+
+idc_required_secrets:
+  - idc_bind_password
