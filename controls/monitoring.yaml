@@ -1,0 +1,49 @@
+family: IGN-MO
+title: Monitoring
+question: If something happened last month, could you still find out?
+soc2: [CC7.2]
+
+controls:
+  - id: IGN-MO-01
+    statement: Logs are shipped off the host that produced them, within minutes.
+    rationale: >-
+      Logs that only exist on the host are gone in exactly the situation they
+      were kept for. Anyone who can alter the host can alter its account of
+      what they did.
+    soc2: [CC7.2]
+    status: planned
+    implemented_by:
+      - ansible/roles/logging
+    verified_by:
+      - fleet-policy:log-shipping-active
+    evidence: Hosts reporting into the log store, against the expected estate.
+
+  - id: IGN-MO-02
+    statement: Log retention is stated, enforced, and long enough to investigate something noticed late.
+    rationale: >-
+      Retention shorter than the time it takes to notice a problem is storage
+      spend with no investigative value. Stating the number is what allows
+      anyone to judge whether it is long enough.
+    soc2: [CC7.2]
+    status: planned
+    implemented_by:
+      - ansible/roles/logging
+    verified_by:
+      - evidence:log-retention
+    evidence: Configured retention against the stated policy, and the oldest queryable record.
+
+  - id: IGN-MO-03
+    statement: >-
+      Security-relevant events reach a human: break-glass use, privilege
+      changes, agent silence, and failed provenance verification.
+    rationale: >-
+      A named short list, because alerting on everything is the same as
+      alerting on nothing. Each of these four means a control in this document
+      either failed or was deliberately bypassed.
+    soc2: [CC7.2]
+    status: planned
+    implemented_by:
+      - ansible/roles/logging
+    verified_by:
+      - evidence:alert-rules
+    evidence: Alert rules with a sample firing for each, showing it reached a person.

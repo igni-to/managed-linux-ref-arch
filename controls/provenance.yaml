@@ -1,0 +1,105 @@
+family: IGN-SC
+title: Provenance
+question: When something executes on a host, where did it come from and who approved it?
+soc2: [CC8.1, CC6.8]
+
+# Four paths put code on a host: remote scripts, the endpoint pull loop,
+# packages and images, and the enrollment bootstrap. They get one rule rather
+# than four, because a rule that applies to three of four paths is a rule an
+# attacker reads as a map.
+#
+# IGN-SC-01 is the only control in this repository currently marked implemented,
+# and it is implemented against this repository itself: its own history is
+# signed and CI verifies it. That is deliberate. A project that documents
+# provenance while accepting unsigned commits is arguing against itself.
+
+controls:
+  - id: IGN-SC-01
+    statement: >-
+      Nothing executes on a host unless its source is version controlled,
+      reviewed, signed, and verified against a pinned allowed-signers list at
+      the point of execution.
+    rationale: >-
+      Review establishes that a human looked at it. Signing establishes that
+      what runs is what was looked at. Neither is sufficient alone, and the
+      second is the one usually skipped because it appears redundant right up
+      until a repository or a mirror is compromised.
+    soc2: [CC8.1, CC6.8]
+    status: implemented
+    implemented_by:
+      - .allowed_signers
+      - CODEOWNERS
+      - .github/workflows/ci.yml
+    verified_by:
+      - ci:signed-commits
+    evidence: CI run showing signature verification, and the allowed-signers list with its change history.
+
+  - id: IGN-SC-02
+    statement: >-
+      The endpoint configuration loop verifies the signature on what it fetched
+      before running any of it, and fails closed when verification fails.
+    rationale: >-
+      ansible-pull clones a repository and executes it with no signature check
+      by default. Unmodified, an endpoint pull loop is a remote code execution
+      path with a timer attached. Failing closed matters as much as verifying:
+      an endpoint that silently re-runs the last good revision looks healthy
+      while being unmanaged.
+    soc2: [CC8.1, CC6.8]
+    status: planned
+    implemented_by:
+      - endpoint/ansible-pull.service
+      - endpoint/verify-and-run.sh
+    verified_by:
+      - fleet-policy:pull-loop-verifying
+    evidence: Unit definition, and a test run against an unsigned revision showing a refusal rather than a run.
+
+  - id: IGN-SC-03
+    statement: >-
+      Scripts that can be executed remotely on endpoints are version controlled
+      and applied from a digest-pinned manifest.
+    rationale: >-
+      Remote script execution is the one capability in this architecture that
+      writes to every endpoint. Pasting a script into a console leaves no
+      reviewable trace, which defeats both change control and the evidence
+      story at once.
+    soc2: [CC8.1]
+    status: planned
+    implemented_by:
+      - terraform/fleet/scripts.tf
+      - scripts/
+    verified_by:
+      - evidence:script-manifest
+    evidence: Manifest of script digests, and the change history for each script.
+
+  - id: IGN-SC-04
+    statement: >-
+      Execution content that differs from the reviewed manifest is detected and
+      reported as a finding.
+    rationale: >-
+      IGN-SC-03 describes the intended path. This one catches the unintended
+      one — someone editing a script directly in a console under time pressure,
+      which is the realistic failure and the reason the digest comparison
+      exists at all.
+    soc2: [CC8.1]
+    status: planned
+    implemented_by:
+      - scripts/check-script-drift.py
+    verified_by:
+      - evidence:script-drift
+    evidence: Drift check output naming any script whose stored content diverged from the manifest.
+
+  - id: IGN-SC-05
+    statement: >-
+      Packages install only from repositories with pinned signing keys, and
+      signature checking is never disabled.
+    rationale: >-
+      Vendor repositories are the highest-volume execution path in any estate
+      and the least examined. A repository added without a pinned key trusts
+      whatever the mirror serves.
+    soc2: [CC6.8]
+    status: planned
+    implemented_by:
+      - ansible/roles/repositories
+    verified_by:
+      - fleet-policy:gpgcheck-enabled
+    evidence: Per-host repository configuration showing pinned keys and signature checking enabled.

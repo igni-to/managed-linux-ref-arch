@@ -1,0 +1,51 @@
+family: IGN-BR
+title: Backup and restore
+question: Not "is it backed up" — when did someone last restore it and watch it work?
+soc2: [A1.2]
+
+controls:
+  - id: IGN-BR-01
+    statement: Every system holding state is in a backup job, and anything excluded is excluded on purpose and in writing.
+    rationale: >-
+      The dangerous case is not the system nobody backed up. It is the system
+      everybody assumed was covered, which is why the exclusion list matters as
+      much as the inclusion list.
+    soc2: [A1.2]
+    status: planned
+    implemented_by:
+      - ansible/roles/backup
+    verified_by:
+      - igni-scan:PVE-BAK-001
+    evidence: Coverage matrix — system, job, destination, retention, and stated recovery point against actual.
+
+  - id: IGN-BR-02
+    statement: >-
+      The identity provider is restored from backup into an isolated
+      environment on a schedule, and someone logs into the restored copy.
+    rationale: >-
+      The identity provider is the most restore-critical system in the estate:
+      while it is down, the ordinary path to every other system is down with it.
+      It gets a named drill rather than a line in a general backup job, and
+      logging in is the part that proves the restore was complete rather than
+      merely successful.
+    soc2: [A1.2]
+    status: planned
+    implemented_by:
+      - docs/runbooks/restore-test.md
+    verified_by:
+      - evidence:restore-drill
+    evidence: Dated drill record — what was restored, how long it took, whether authentication worked afterward.
+
+  - id: IGN-BR-03
+    statement: Restores are tested. A successful backup job is not evidence that a restore works.
+    rationale: >-
+      Backup software reports on writing, which is the easy half. The failures
+      that matter — an unreadable archive, a missing encryption key, a
+      dependency nobody captured — appear only on the way back.
+    soc2: [A1.2]
+    status: planned
+    implemented_by:
+      - docs/runbooks/restore-test.md
+    verified_by:
+      - evidence:restore-drill
+    evidence: Restore test records per system class, with dates and outcomes including failures.

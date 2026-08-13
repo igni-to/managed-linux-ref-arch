@@ -1,0 +1,30 @@
+# Who is allowed to sign commits in this repository.
+#
+# IGN-SC-01 says nothing executes on a host unless its source is signed and
+# verified against a pinned allowed-signers list. This is that list, and it is
+# committed so that adding a signer is a reviewable diff rather than a change
+# somebody makes to their own machine.
+#
+# Format is ssh-keygen(1) allowed_signers:
+#
+#     <principal> namespaces="git" <keytype> <key>
+#
+# The principal is the signing identity — normally the committer's email. The
+# namespace restriction matters: without it a key trusted for git commits is
+# also trusted for anything else ssh-keygen is asked to verify.
+#
+# To verify locally:
+#
+#     git config gpg.ssh.allowedSignersFile .allowed_signers
+#     git log --show-signature
+#
+# To add yourself, in the same pull request as your first signed commit:
+#
+#     1. Add your public key below.
+#     2. Register the same key on your Git host as a *signing* key. A key
+#        registered only for authentication will sign fine and verify nowhere.
+#
+# Removing a key here does not invalidate history that was signed with it. It
+# stops that key signing anything new, which is the property offboarding needs.
+
+dlapiduz@users.noreply.github.com namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEURwxceWhy7b/hLyUjBcA+rogKubUc4fLHx3SqubZqO

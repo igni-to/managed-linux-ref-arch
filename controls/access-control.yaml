@@ -1,0 +1,141 @@
+family: IGN-AC
+title: Access control
+question: Who can reach what, how did they get that access, and how do you know it went away?
+soc2: [CC6.1, CC6.2, CC6.3]
+
+# This is the family the whole architecture is arranged around. Every other
+# family assumes these hold: an endpoint control is worth little if a departed
+# employee still has a working credential for the machine.
+
+controls:
+  - id: IGN-AC-01
+    statement: >-
+      Every human account originates in the identity provider. No interactive
+      account is created directly on a host.
+    rationale: >-
+      An account created on a host is invisible to every process that governs
+      access — it will not appear in a review, will not be disabled by
+      offboarding, and will still work a year after the person left.
+    soc2: [CC6.1, CC6.2]
+    status: planned
+    implemented_by:
+      - terraform/identity/users.tf
+      - ansible/roles/identity_client
+    verified_by:
+      - igni-scan:DSK-IDP-002
+    evidence: Directory user list, and per-host local account inventory showing only service and break-glass accounts.
+
+  - id: IGN-AC-02
+    statement: >-
+      Access is granted by group membership, never by assignment to an
+      individual.
+    rationale: >-
+      Individual grants are how estates end up with access nobody can explain.
+      A group has a name, a purpose, and a membership list that reads as an
+      answer to "who can reach this and why."
+    soc2: [CC6.1, CC6.2]
+    status: planned
+    implemented_by:
+      - terraform/identity/groups.tf
+      - terraform/mesh/acl.tf
+    verified_by:
+      - evidence:access-matrix
+    evidence: Access matrix — group by system, generated rather than maintained.
+
+  - id: IGN-AC-03
+    statement: >-
+      Access is removed within 24 hours of a person leaving, across every
+      system, without anyone visiting each system.
+    rationale: >-
+      Offboarding is the control most often claimed and least often evidenced.
+      The 24-hour bound is what makes it checkable; "promptly" is not a control.
+    soc2: [CC6.3]
+    status: planned
+    implemented_by:
+      - terraform/identity/users.tf
+      - ansible/roles/ssh_ca_client
+    verified_by:
+      - evidence:offboarding-report
+    evidence: Offboarding report with a timestamp per revocation, one row per system.
+
+  - id: IGN-AC-04
+    statement: >-
+      Multi-factor authentication is required at the identity provider, and the
+      identity provider is the only path to every other system.
+    rationale: >-
+      MFA on the front door is worth nothing if there is a side door. The
+      second clause is the one that does the work, and it is the one usually
+      missing.
+    soc2: [CC6.1]
+    status: planned
+    implemented_by:
+      - terraform/identity/authentication_flow.tf
+    verified_by:
+      - evidence:mfa-coverage
+    evidence: Per-user MFA enrollment, and a list of any system reachable without going through the identity provider.
+
+  - id: IGN-AC-05
+    statement: >-
+      Interactive SSH authenticates with a certificate that expires within one
+      working day. Authorized-keys files are not an access path.
+    rationale: >-
+      This is what makes IGN-AC-03 true rather than aspirational. A long-lived
+      key must be found and removed on every host that ever trusted it; a
+      certificate stops working on its own. Nobody has to remember anything.
+    soc2: [CC6.1, CC6.3]
+    status: planned
+    implemented_by:
+      - ansible/roles/ssh_ca_client
+    verified_by:
+      - fleet-policy:ssh-ca-only
+      - igni-scan:LNX-SSH-001
+    evidence: sshd configuration showing TrustedUserCAKeys and no password authentication; certificate lifetime from the CA policy.
+
+  - id: IGN-AC-06
+    statement: >-
+      Administrative privilege is granted by group and revoked with it. Password-less
+      sudo requires a written, reviewed exception.
+    rationale: >-
+      Privilege that outlives its reason is the most common finding in any
+      estate that has been running for more than a few years. Blanket NOPASSWD
+      is usually a convenience nobody revisited.
+    soc2: [CC6.1, CC6.3]
+    status: planned
+    implemented_by:
+      - ansible/roles/identity_client
+    verified_by:
+      - fleet-policy:sudo-matches-groups
+    evidence: Rendered sudoers per host class, and the exception list with reasons.
+
+  - id: IGN-AC-07
+    statement: >-
+      Each host class has exactly one break-glass credential, sealed in the
+      secret store, and its use raises an alert within minutes.
+    rationale: >-
+      The identity provider runs inside the estate it governs. When it is down,
+      something has to still work, or recovery requires the thing that is
+      broken. The alert is what separates a break-glass account from an
+      unmonitored back door.
+    soc2: [CC6.1]
+    status: planned
+    implemented_by:
+      - ansible/roles/breakglass
+    verified_by:
+      - fleet-policy:breakglass-account-present
+    evidence: Secret store audit log for the credential, and the alert rule with a sample firing.
+
+  - id: IGN-AC-08
+    statement: >-
+      The break-glass path is exercised quarterly, and the exercise produces a
+      record.
+    rationale: >-
+      An untested recovery path is a belief. This is the control that turns
+      IGN-AC-07 from a design note into something that has been observed to
+      work — including the alert firing.
+    soc2: [CC6.1]
+    status: planned
+    implemented_by:
+      - docs/runbooks/break-glass.md
+    verified_by:
+      - evidence:breakglass-drill
+    evidence: Dated drill record — who, which host class, whether the alert fired, how long recovery took.

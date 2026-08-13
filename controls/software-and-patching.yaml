@@ -1,0 +1,54 @@
+family: IGN-SW
+title: Software
+question: What is installed across the estate, and how quickly does a known vulnerability stop being present?
+soc2: [CC6.8, CC7.1]
+
+# Patching lives in its own family (IGN-PT, controls/patching.yaml) because the
+# questions differ: this family is about what is installed and whether anyone
+# chose it, that one is about how fast it changes when it needs to.
+
+controls:
+  - id: IGN-SW-01
+    statement: >-
+      Software installs from a defined set of sources, and the set is a decision
+      recorded in configuration rather than whatever each machine accumulated.
+    rationale: >-
+      An estate where every machine has a different set of third-party
+      repositories has no meaningful software inventory, because the next
+      package could come from anywhere.
+    soc2: [CC6.8]
+    status: planned
+    implemented_by:
+      - ansible/roles/repositories
+    verified_by:
+      - fleet-policy:approved-sources
+    evidence: Configured sources per host class, and any host with sources outside the set.
+
+  - id: IGN-SW-02
+    statement: Installed software is inventoried automatically on every host.
+    rationale: >-
+      This is the control that makes the vulnerability question answerable at
+      all. A hand-maintained inventory is out of date the week it is written.
+    soc2: [CC7.1]
+    status: planned
+    implemented_by:
+      - ansible/roles/fleet_agent
+    verified_by:
+      - evidence:software-inventory
+    evidence: Software inventory by host, with collection timestamps.
+
+  - id: IGN-SW-03
+    statement: >-
+      Known-vulnerable packages are visible with the age of each exposure, not
+      only its severity.
+    rationale: >-
+      Severity says how bad it would be. Age says how long the organization has
+      been living with it, which is the number that describes the process rather
+      than the vulnerability.
+    soc2: [CC7.1]
+    status: planned
+    implemented_by:
+      - terraform/fleet/policies.tf
+    verified_by:
+      - evidence:vulnerability-age
+    evidence: Open vulnerabilities by host with first-detected dates.

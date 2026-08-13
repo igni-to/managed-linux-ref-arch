@@ -1,0 +1,56 @@
+family: IGN-CM
+title: Change
+question: How does a change reach production, and could you reconstruct who decided it?
+soc2: [CC8.1]
+
+controls:
+  - id: IGN-CM-01
+    statement: >-
+      Every configuration change reaches a host through version control. Manual
+      changes are drift, not changes.
+    rationale: >-
+      This is what makes the change history real rather than a parallel record
+      somebody maintains. It also makes the estate reproducible, which is the
+      property that turns a disaster into an inconvenience.
+    soc2: [CC8.1]
+    status: planned
+    implemented_by:
+      - ansible/
+      - terraform/
+    verified_by:
+      - fleet-policy:config-matches-source
+    evidence: Change history from version control, and drift findings per host.
+
+  - id: IGN-CM-02
+    statement: >-
+      Changes to anything that executes on a host require review by someone
+      other than the author.
+    rationale: >-
+      Review scaled to blast radius. Most of an estate's configuration is
+      visible and reversible; the execution paths are neither, because they run
+      everywhere before anyone reads the diff.
+    soc2: [CC8.1]
+    status: partial
+    implemented_by:
+      - CODEOWNERS
+    verified_by: []
+    evidence: Pull request history showing review on the execution paths.
+    notes: >-
+      Partial because CODEOWNERS expresses the intent and only branch protection
+      enforces it. Until protection requires code-owner review, this is a
+      convention. Promote to implemented when the setting is on and a test pull
+      request has been blocked by it.
+
+  - id: IGN-CM-03
+    statement: Drift between intended and actual configuration is detected and reported.
+    rationale: >-
+      Configuration management that only pushes cannot tell you whether it
+      arrived. Detection is a separate system from enforcement on purpose — a
+      tool reporting its own success proves nothing.
+    soc2: [CC8.1]
+    status: planned
+    implemented_by:
+      - terraform/fleet/policies.tf
+    verified_by:
+      - evidence:drift-report
+    evidence: Policy pass rates by control, and the hosts failing each.

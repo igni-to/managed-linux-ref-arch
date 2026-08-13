@@ -1,0 +1,81 @@
+family: IGN-EP
+title: Endpoint
+question: If a laptop is lost tomorrow, what does whoever finds it get?
+soc2: [CC6.7, CC6.8]
+
+controls:
+  - id: IGN-EP-01
+    statement: >-
+      Every endpoint encrypts its system disk, and the recovery key is escrowed
+      somewhere the organization can reach it.
+    rationale: >-
+      Encryption without escrow trades one loss for another: the disk is safe
+      and so is the data, from everybody. Escrow is the half that makes full
+      disk encryption operationally survivable.
+    soc2: [CC6.7]
+    status: planned
+    implemented_by:
+      - ansible/roles/hardening_baseline
+    verified_by:
+      - fleet-policy:disk-encryption
+      - igni-scan:DSK-SEC-001
+    evidence: Per-host encryption status and escrow coverage, as a count with the exceptions named.
+
+  - id: IGN-EP-02
+    statement: Screens lock unattended within 15 minutes and require reauthentication.
+    rationale: >-
+      The cheapest control in this document and the one most often absent,
+      because it is a default nobody changed rather than a decision anyone made.
+    soc2: [CC6.7]
+    status: planned
+    implemented_by:
+      - ansible/roles/hardening_baseline
+    verified_by:
+      - fleet-policy:screen-lock
+      - igni-scan:DSK-SEC-004
+    evidence: Per-host lock configuration with idle delay.
+
+  - id: IGN-EP-03
+    statement: A host firewall is active on every endpoint and server, denying inbound by default.
+    rationale: >-
+      Estates that rely on a network perimeter inherit its assumptions. A laptop
+      spends much of its life outside that perimeter, on networks nobody chose.
+    soc2: [CC6.6]
+    status: planned
+    implemented_by:
+      - ansible/roles/hardening_baseline
+    verified_by:
+      - fleet-policy:firewall-active
+      - igni-scan:DSK-SEC-003
+    evidence: Per-host firewall state and default policy.
+
+  - id: IGN-EP-04
+    statement: Secure boot is enabled wherever the hardware supports it, and exceptions are recorded.
+    rationale: >-
+      Worth having, and worth being honest about: it raises the cost of a
+      persistent implant, and it is not available on every machine an estate
+      actually contains. The recorded exception is the useful part.
+    soc2: [CC6.8]
+    status: planned
+    implemented_by:
+      - ansible/roles/hardening_baseline
+    verified_by:
+      - igni-scan:DSK-SEC-005
+    evidence: Secure boot state per host, with exceptions and their reasons.
+
+  - id: IGN-EP-05
+    statement: >-
+      The management agent is present and reporting on every endpoint, and a
+      host silent for more than seven days is investigated.
+    rationale: >-
+      Every control below this one is verified through the agent. A silent host
+      is not a passing host — it is an unknown one, and an inventory that counts
+      silence as success is worse than no inventory.
+    soc2: [CC7.2]
+    status: planned
+    implemented_by:
+      - ansible/roles/fleet_agent
+      - endpoint/bootstrap.sh
+    verified_by:
+      - evidence:agent-coverage
+    evidence: Enrolled host count against the expected estate, and the list of hosts last seen more than seven days ago.

@@ -1,0 +1,52 @@
+family: IGN-PT
+title: Patching
+question: How long does a security update take to reach every machine, and who would notice if it stopped?
+soc2: [CC7.1]
+
+controls:
+  - id: IGN-PT-01
+    statement: Security updates apply automatically on every host, without waiting for a person.
+    rationale: >-
+      Manual patching scales until it doesn't, and the machines it stops
+      reaching first are the ones nobody logs into — which are also the ones
+      least likely to be noticed.
+    soc2: [CC7.1]
+    status: planned
+    implemented_by:
+      - ansible/roles/patching
+    verified_by:
+      - fleet-policy:auto-updates-enabled
+      - igni-scan:LNX-UPD-001
+    evidence: Automatic update configuration per host, and last successful run.
+
+  - id: IGN-PT-02
+    statement: >-
+      Patch latency has a stated target, is measured against it, and the
+      measurement is part of the evidence pack.
+    rationale: >-
+      "We patch regularly" is not answerable. A stated target turns patching
+      into something with a pass and a fail, and the estate either meets it or
+      has a list of hosts that do not.
+    soc2: [CC7.1]
+    status: planned
+    implemented_by:
+      - evidence/generate.py
+    verified_by:
+      - evidence:patch-latency
+    evidence: Distribution of days between update availability and installation, by host class.
+
+  - id: IGN-PT-03
+    statement: >-
+      Hosts requiring a reboot to complete patching are visible, and the wait is
+      bounded.
+    rationale: >-
+      A patched-but-unrebooted host reports as current and is running the old
+      kernel. This is the gap between what patch tooling says and what is
+      actually executing.
+    soc2: [CC7.1]
+    status: planned
+    implemented_by:
+      - ansible/roles/patching
+    verified_by:
+      - fleet-policy:reboot-required
+    evidence: Hosts pending reboot, with how long each has been pending.

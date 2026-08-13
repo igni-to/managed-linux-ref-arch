@@ -1,0 +1,146 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  # Public repo describing a generic estate: a leaked real hostname or token
+  # would be permanent. Ported verbatim from igni-scan, which learned the
+  # lesson the expensive way — see the comments below.
+  no-real-identifiers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: no real-world identifiers anywhere in the repository
+        run: |
+          # Every tracked text file, not just fixtures. An earlier version of
+          # this guard only looked at *.json, *.yaml and *.golden — and a real
+          # cluster address reached a tracked .md file and passed CI silently.
+          # A leaked hostname is permanent whichever file it arrives in.
+          #
+          # git grep rather than grep -r, so this checks what is committed:
+          # untracked and ignored files (local scratch state, tfvars) are not
+          # CI's business, and git's regex engine behaves the same everywhere,
+          # which plain grep does not.
+          PATTERN='([0-9]{1,3}\.){3}[0-9]{1,3}|PVEAPIToken|BEGIN [A-Z ]*PRIVATE KEY'
+          HOSTNAMES='\.local|\.lan|\.internal'
+
+          # Loopback, and the RFC 5737 documentation ranges. Nothing else.
+          ALLOWED='127\.0\.0\.1|0\.0\.0\.0|192\.0\.2\.|198\.51\.100\.|203\.0\.113\.'
+
+          hits=""
+          while IFS= read -r hit; do
+            [ -n "$hit" ] || continue
+            file=${hit%%:*}; rest=${hit#*:}; num=${rest%%:*}
+            # A line may be excused by an "estate:synthetic-ok <why>" marker on
+            # it or on the line above. The reason is required: a bare marker is
+            # a way to switch the guard off without saying anything.
+            #
+            # The reason has to start with a real word. Requiring merely
+            # "something after the marker" accepted "<!-- estate:synthetic-ok -->",
+            # because a comment's closing syntax is non-whitespace too.
+            from=$num; [ "$num" -gt 1 ] && from=$((num - 1))
+            if sed -n "${from},${num}p" "$file" \
+               | grep -qE 'estate:synthetic-ok[[:space:]]+[A-Za-z][A-Za-z][A-Za-z]'; then
+              continue
+            fi
+            hits="${hits}${hit}"$'\n'
+          done < <({ git grep -nIE "$PATTERN" -- . ':!.github/workflows/ci.yml'
+                     git grep -nIE "$HOSTNAMES" -- . ':!.github/workflows/ci.yml'
+                   } | sort -u | grep -vE "$ALLOWED")
+
+          if [ -n "$hits" ]; then
+            printf '%s' "$hits"
+            echo "::error::Possible real identifier committed. Use invented hostnames and the RFC 5737 documentation ranges (192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24). If a match is genuinely synthetic, mark the line: estate:synthetic-ok <why>"
+            exit 1
+          fi
+          echo "no real-world identifiers found in tracked files"
+
+  # This repository shows how to produce evidence for the questions SOC 2 asks.
+  # It does not certify anything, and must never imply that it does. The
+  # distinction is a commercial commitment, not a stylistic preference.
+  compliance-language:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: no claims of certification or attestation
+        run: |
+          # Anchored to the claim, not the vocabulary. "SOC 2" alone is fine and
+          # appears throughout the control catalog; "SOC 2 compliant" is a
+          # claim this project is not entitled to make. Likewise an attestation
+          # is a thing an auditor issues, and nothing here is an auditor.
+          BANNED='SOC ?2[- ]?(compliant|certified|certification|ready)|(is|are|be(come)?) SOC ?2|SOC ?2 attestation|we (are|will be) (certified|compliant)|passes? (the )?SOC ?2'
+
+          if git grep -nIiE "$BANNED" -- . ':!.github/workflows/ci.yml'; then
+            echo "::error::A certification claim reached the repository. This project produces evidence for the questions SOC 2 asks; it does not certify, attest, or make anything compliant. Rephrase around what the evidence shows."
+            exit 1
+          fi
+          echo "no certification claims found"
+
+  # US English throughout. The audience is US organizations, and mixed spelling
+  # reads as inattention in a document whose whole argument is that the details
+  # were checked.
+  voice:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: US English
+        run: |
+          # The alternations are anchored so that "specialist", "European",
+          # "emphasis" and "realistic" are not matches. A spelling guard that
+          # cries wolf gets deleted, which is worse than not having one.
+          BRITISH='licence|centre|colour|\bgrey\b|behaviour|judgement|organis(e|ed|ing|ation)|honour|labelled|modelling|whilst|amongst|learnt|defence|catalogue|programme|fibre|neighbour|favour|labour|enrolment|fulfil\b|skilful|analyse|recognise|optimis(e|ed|ing|ation)|prioritis(e|ed|ing)|standardis(e|ed|ing)|customis(e|ed|ing)|normalis(e|ed|ing)|realis(e|ed|ing)|visualis(e|ed|ing)|virtualis(e|ed|ation)'
+
+          if git grep -nIiE "$BRITISH" -- . ':!.github/workflows/ci.yml'; then
+            echo "::error::British spelling. This project is written in US English."
+            exit 1
+          fi
+          echo "US English throughout"
+
+  # Provenance starts with this repository's own history. IGN-SC-01 says nothing
+  # executes unless its source is signed; a repo full of unsigned commits cannot
+  # claim that control while being the thing that documents it.
+  #
+  # Branch protection ("require signed commits") is the real enforcement. This
+  # job exists so the failure is legible on the pull request rather than at
+  # merge time.
+  signed-commits:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: every commit in this pull request is signed and verified
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          # GitHub reports verification status, which checks the signature
+          # against the keys the signer has registered. Verifying locally would
+          # need the public keys in the runner, and would then be checking the
+          # repository's own allowed_signers against itself.
+          unverified=$(gh api --paginate "repos/$REPO/pulls/$PR/commits" \
+            --jq '.[] | select(.commit.verification.verified == false)
+                  | "\(.sha[0:8])  \(.commit.message | split("\n")[0])  — \(.commit.verification.reason)"')
+
+          if [ -n "$unverified" ]; then
+            echo "$unverified"
+            echo "::error::Unsigned or unverifiable commits. Set up SSH commit signing (git config gpg.format ssh) and add your key to allowed_signers in the same pull request."
+            exit 1
+          fi
+          echo "every commit verified"
+
+  controls:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - run: pip install pyyaml
+      - name: the control catalog is well formed
+        run: python3 scripts/validate-controls.py

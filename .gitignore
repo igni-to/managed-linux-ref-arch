@@ -1,0 +1,35 @@
+# Terraform working state. State never lives in git — it holds secrets in
+# plaintext, and the backend is configured per deployment.
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+crash.log
+
+# Variable files hold the values that make a deployment specific: endpoints,
+# credentials, the estate's own names. The .example files are committed; these
+# are not, and the no-real-identifiers guard is the backstop for when someone
+# renames one by accident.
+*.tfvars
+*.auto.tfvars
+!*.tfvars.example
+
+# Ansible
+*.retry
+.vault_pass
+
+# Generated evidence packs describe a real estate. Producing one is the point;
+# committing one publishes an access inventory.
+evidence/out/
+
+# Local environment
+.env
+.envrc
+.direnv/
+
+# Editor and OS
+.DS_Store
+*.swp
+.idea/
+.vscode/

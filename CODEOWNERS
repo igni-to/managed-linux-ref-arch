@@ -1,0 +1,21 @@
+# Review requirements, weighted by blast radius.
+#
+# Most of this repository is documentation and declarative configuration, where
+# a mistake is visible and reversible. Four paths are different: they define
+# what executes on a host, and a mistake in them runs everywhere before anyone
+# reads it. Those get a named reviewer, and branch protection should require
+# review from a code owner so that the requirement is enforced rather than
+# advisory.
+
+*                       @dlapiduz
+
+# The execution paths — see docs/06-provenance.md.
+/endpoint/              @dlapiduz
+/scripts/               @dlapiduz
+/ansible/               @dlapiduz
+/terraform/fleet/       @dlapiduz
+
+# The trust roots themselves. Changing who may sign, or what CI checks, is a
+# change to every guarantee downstream of it.
+/.allowed_signers       @dlapiduz
+/.github/               @dlapiduz

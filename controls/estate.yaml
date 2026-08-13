@@ -1,0 +1,49 @@
+family: IGN-VE
+title: Estate
+question: Does the organization know what it has, who owns each of them, and what happened to the ones it retired?
+soc2: [CC3.2, CC9.2]
+
+controls:
+  - id: IGN-VE-01
+    statement: The asset register is generated from what is actually reporting, not maintained by hand.
+    rationale: >-
+      A hand-maintained register describes what someone remembered to write
+      down. A generated one describes the estate, including the parts nobody
+      meant to have — which is the whole reason to look.
+    soc2: [CC3.2]
+    status: planned
+    implemented_by:
+      - evidence/generate.py
+    verified_by:
+      - evidence:asset-register
+    evidence: Generated register with collection timestamp, and the reconciliation against expected hosts.
+
+  - id: IGN-VE-02
+    statement: Every system has a named owner who would be asked before it changed or went away.
+    rationale: >-
+      Unowned systems do not get patched, restored, or retired. They get
+      discovered, usually at the worst moment, and usually by someone who has
+      to guess whether anything depends on them.
+    soc2: [CC3.2]
+    status: planned
+    implemented_by:
+      - terraform/identity/groups.tf
+    verified_by:
+      - evidence:ownership
+    evidence: System-to-owner mapping, and the list of systems with no owner.
+
+  - id: IGN-VE-03
+    statement: >-
+      Decommissioning a system removes its access, its credentials and its
+      certificates, and records that it did.
+    rationale: >-
+      Offboarding a person is well understood and offboarding a system usually
+      is not. A retired host with a live certificate, or a service account
+      nobody removed, is access that outlives the thing it was for.
+    soc2: [CC9.2, CC6.3]
+    status: planned
+    implemented_by:
+      - docs/runbooks/decommission.md
+    verified_by:
+      - evidence:decommission-record
+    evidence: Per-decommission record listing each credential and grant removed, with timestamps.
