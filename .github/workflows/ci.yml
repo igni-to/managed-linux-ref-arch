@@ -134,6 +134,24 @@ jobs:
           fi
           echo "every commit verified"
 
+  # The lab is the test harness for everything else, so breaking it on main
+  # blocks all the work that depends on it. Formatting and validation need no
+  # credentials and no hypervisor, so there is no reason not to check them.
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+      - name: formatting
+        run: terraform fmt -check -recursive
+      - name: the lab configuration is valid
+        working-directory: lab
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate
+
   controls:
     runs-on: ubuntu-latest
     steps:

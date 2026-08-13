@@ -1,0 +1,124 @@
+#cloud-config
+# The lab gateway: the one machine with a foot in both networks.
+#
+# It does three things and nothing else — routes, resolves, and stays out of
+# the way. It is deliberately not the identity provider, not the certificate
+# authority, and not a jump host, because a lab whose gateway accumulates
+# services stops being able to demonstrate that the other machines work.
+
+hostname: ${hostname}
+fqdn: ${hostname}.${domain}
+prefer_fqdn_over_hostname: true
+
+users:
+  - name: ${admin_username}
+    gecos: Lab bootstrap administrator
+    groups: [sudo, adm]
+    shell: /bin/bash
+    lock_passwd: true
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    ssh_authorized_keys:
+%{ for key in admin_ssh_keys ~}
+      - ${key}
+%{ endfor ~}
+
+ssh_pwauth: false
+disable_root: true
+
+package_update: true
+packages:
+  - qemu-guest-agent
+  - nftables
+  - dnsmasq
+  - python3
+
+write_files:
+  - path: /etc/sysctl.d/99-lab-forwarding.conf
+    content: |
+      net.ipv4.ip_forward = 1
+    permissions: "0644"
+
+  - path: /etc/nftables.conf
+    permissions: "0755"
+    content: |
+      #!/usr/sbin/nft -f
+      flush ruleset
+
+      # Masquerade is matched on source and destination networks rather than
+      # on interface names. Interface naming varies between images and between
+      # Proxmox machine types, and a firewall that silently stops matching
+      # because an interface was renamed is worse than no firewall.
+      table ip nat {
+        chain postrouting {
+          type nat hook postrouting priority srcnat; policy accept;
+          ip saddr ${lab_cidr} ip daddr != ${lab_cidr} masquerade
+        }
+      }
+
+      table inet filter {
+        chain input {
+          type filter hook input priority filter; policy drop;
+
+          ct state established,related accept
+          iif lo accept
+
+          # From inside the lab: everything. The lab network is the trusted
+          # side; that is what makes it a lab.
+          ip saddr ${lab_cidr} accept
+
+          # From the uplink: SSH only, so the lab can be reached to be worked
+          # on without the rest of it being exposed.
+          tcp dport 22 accept
+        }
+
+        chain forward {
+          type filter hook forward priority filter; policy drop;
+
+          ct state established,related accept
+
+          # Out of the lab, yes. Into the lab, no. Package installation works;
+          # nothing on the surrounding network can open a connection to the
+          # identity provider.
+          ip saddr ${lab_cidr} accept
+        }
+
+        chain output {
+          type filter hook output priority filter; policy accept;
+        }
+      }
+
+  - path: /etc/dnsmasq.d/lab.conf
+    permissions: "0644"
+    content: |
+      # Serve the lab only. Binding to the lab address means this cannot
+      # answer queries arriving on the uplink even by accident.
+      listen-address=${gateway_ip}
+      bind-interfaces
+      no-hosts
+      domain-needed
+      bogus-priv
+
+      domain=${domain}
+      local=/${domain}/
+      expand-hosts
+
+      # Upstream resolvers are deliberately not named here. They are inherited
+      # from whatever the uplink handed out over DHCP, via the packaged
+      # resolvconf integration — which is also why resolv-file is not set.
+      #
+      # Pointing dnsmasq at /etc/resolv.conf directly is the obvious thing to
+      # write and is a trap: on any image using systemd-resolved that file
+      # contains a stub resolver, and dnsmasq ends up forwarding queries to
+      # itself. The symptom is a lab where DNS times out rather than fails,
+      # which is considerably harder to diagnose.
+
+%{ for name, m in machines ~}
+      address=/${name}.${domain}/${m.ip}
+%{ endfor ~}
+
+runcmd:
+  - [systemctl, enable, --now, qemu-guest-agent]
+  - [sysctl, --system]
+  - [systemctl, enable, --now, nftables]
+  - [systemctl, restart, dnsmasq]
+  - [systemctl, enable, dnsmasq]

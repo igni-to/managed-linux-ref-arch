@@ -1,0 +1,56 @@
+#cloud-config
+# Bootstrap for every lab machine that is not the gateway.
+#
+# This does the least it can. Everything the architecture actually describes —
+# directory enrollment, certificate-based SSH, the baseline, the agent — is
+# applied by Ansible afterwards, because that is the part being demonstrated.
+# A cloud-init file that configures the estate would be a second, invisible
+# configuration system competing with the one under test.
+
+hostname: ${hostname}
+fqdn: ${hostname}.${domain}
+prefer_fqdn_over_hostname: true
+
+users:
+  - name: ${admin_username}
+    gecos: Lab bootstrap administrator
+    groups: [sudo, wheel, adm]
+    shell: /bin/bash
+    lock_passwd: true
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    ssh_authorized_keys:
+%{ for key in admin_ssh_keys ~}
+      - ${key}
+%{ endfor ~}
+
+# Password authentication is off from first boot rather than turned off later.
+# The window between "machine exists" and "machine is configured" is where labs
+# get compromised, and it is longer than anybody expects.
+ssh_pwauth: false
+disable_root: true
+
+package_update: true
+packages:
+  - qemu-guest-agent
+  - python3
+  - curl
+  - ca-certificates
+
+write_files:
+  # Recorded so that anything inspecting this machine later can tell what it
+  # was meant to be. The Ansible inventory is generated from Terraform, not
+  # from this, but a machine that knows its own role is easier to debug.
+  - path: /etc/lab-role
+    content: |
+      ${role}
+    permissions: "0444"
+
+runcmd:
+  # The agent is what lets Terraform learn the addresses, so it starts now
+  # rather than on next boot.
+  - [systemctl, enable, --now, qemu-guest-agent]
+
+# Fedora and Debian disagree about almost everything here, and cloud-init
+# smooths over most of it. The one that matters: `sudo` exists as a group on
+# Debian and `wheel` on Fedora, so both are listed above and the absent one is
+# ignored rather than failing the run.

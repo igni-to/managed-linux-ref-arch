@@ -1,0 +1,56 @@
+# Copy to terraform.tfvars and fill in. That file is gitignored — it is the
+# one place in this repository where a real environment is described, and it
+# stays on the machine that runs the lab.
+
+# ── the hypervisor ──────────────────────────────────────────────────────────
+
+pve_endpoint = "https://hypervisor.example:8006"
+pve_node     = "node1"
+
+# user@realm!tokenid=secret
+#
+# This token can create and destroy virtual machines. Scope it to a role and a
+# pool that only cover the lab; do not reuse an administrative token, and do
+# not reuse the read-only token used for assessment work — different jobs,
+# different credentials, which is the whole argument of IGN-AC-02.
+pve_api_token = "lab@pve!terraform=00000000-0000-0000-0000-000000000000"
+
+# Most lab hypervisors present a self-signed certificate. Setting this true is
+# reasonable here and is not reasonable anywhere else.
+pve_insecure = true
+
+# ── storage ─────────────────────────────────────────────────────────────────
+
+pve_datastore = "local-lvm"
+
+# Must have the "snippets" content type enabled, or cloud-init cannot be
+# uploaded and the first apply fails. See README.md — this is the most common
+# first failure.
+pve_snippets_datastore = "local"
+
+# ── networking ──────────────────────────────────────────────────────────────
+
+# The existing bridge the gateway uses to reach the internet. This is the only
+# contact the lab has with any existing network.
+pve_uplink_bridge = "vmbr0"
+
+# Created by Terraform. Must not already exist on the node.
+lab_bridge = "vmbr90"
+
+# Defaults are RFC 5737 documentation space and an RFC 2606 domain. Both are
+# reserved for exactly this, and both make a stray lab address obvious.
+# lab_network_cidr = "192.0.2.0/24"
+# lab_domain       = "lab.example"
+
+# ── identifiers ─────────────────────────────────────────────────────────────
+
+# The lab claims vmid_base through vmid_base + 9. Pick a range nothing occupies.
+vmid_base = 9200
+
+# ── access ──────────────────────────────────────────────────────────────────
+
+admin_ssh_keys = [
+  "ssh-ed25519 AAAA... you@example",
+]
+
+# admin_username = "labadmin"
