@@ -82,6 +82,38 @@ setting is not unassigned; the object does not exist.
 uses, so a password set through recovery gets the same validation as a password
 change. Then attach it to the brand.
 
+### A filtered list endpoint whose `count` and `results` disagree
+
+**Symptom.** Objects are created for one service and silently skipped for the
+next four. No error anywhere; the run reports success.
+
+**Cause.** A filtered query — `?slug=immich` — returns `pagination.count: 0`
+and a **non-empty** `results` array carrying unrelated objects. An existence
+check written as `results | length == 0` therefore concludes the object already
+exists, and skips the create.
+
+**Fix.** Read existence from `pagination.count`, never from the length of
+`results`.
+
+**The general lesson.** When a create is guarded by a lookup, a lookup that
+wrongly reports "found" fails *silently* — the run is green and the work did
+not happen. Prefer guards whose failure mode is a loud error over guards whose
+failure mode is a skip, and verify the object exists afterwards rather than
+trusting the guard.
+
+### Rotating a secret has to reach both sides
+
+**Symptom.** A credential is rotated in the secret store, everything continues
+working, and the rotation has not actually happened.
+
+**Cause.** The reconcile step patched every field except the secret, so the
+identity provider kept the old value and the two sides drifted. Nothing failed,
+because the old secret was still valid on both ends of the flow that used it.
+
+**Fix.** Include the secret in whatever converges the configuration, and verify
+a rotation by comparing hashes of both sides rather than by observing that
+things still work.
+
 ---
 
 ## Configuration management
