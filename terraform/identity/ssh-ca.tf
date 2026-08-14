@@ -27,6 +27,11 @@ resource "authentik_provider_oauth2" "ssh_ca" {
   # problem than its OAuth client type.
   client_type = "confidential"
 
+  # Explicit, because the field defaults to an empty list and an empty list
+  # permits nothing — every authorization request is then refused before any
+  # credential is evaluated. Found the expensive way; see docs/field-notes.md.
+  grant_types = ["authorization_code", "refresh_token"]
+
   # step-ca completes the flow on a loopback listener it opens for the
   # duration of the login. Only loopback is allowed: a redirect URI pointing
   # anywhere else would let an authorization code land somewhere the person

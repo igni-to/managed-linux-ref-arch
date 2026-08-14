@@ -99,6 +99,7 @@ and the gap between them is a number somebody can be accountable for.
 | Know why something was chosen | [`docs/adr/`](docs/adr/) |
 | Try it without touching anything you care about | [`lab/`](lab/) |
 | Onboard or offboard a person | [`docs/runbooks/`](docs/runbooks/) |
+| Know what has already gone wrong | [`docs/field-notes.md`](docs/field-notes.md) |
 
 ## Status
 
